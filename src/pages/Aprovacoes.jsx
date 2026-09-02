@@ -72,7 +72,7 @@ export default function Aprovacoes({ user }) {
                         <strong style={{ marginRight: '16px' }}>R$ {Number(d.amount).toFixed(2)}</strong>
                         
                         {/* Ações Técnicas */}
-                        {(user.profile?.funcao === 'Kyanne' || user.profile?.funcao === 'Admin') && d.status === 'ABERTO' && (
+                        {['Gestor', 'Supervisor', 'Kyanne', 'Admin'].includes(user.profile?.funcao) && d.status === 'ABERTO' && (
                           <button className="btn btn-primary" onClick={() => handleAcao(d.id, 'VALIDADO')}>Validar</button>
                         )}
                         {/* Ações Financeiras */}

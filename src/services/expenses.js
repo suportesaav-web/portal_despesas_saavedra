@@ -11,8 +11,9 @@ export const expensesService = {
       `)
       .order('date', { ascending: false });
 
-    // Vendedores veem só as deles. Kyanne e Financeiro veem todas.
-    if (userProfile?.funcao !== 'Kyanne' && userProfile?.funcao !== 'Financeiro') {
+    // Perfis com visão global: Gestores, Financeiro e Admin. Vendedores veem apenas as suas.
+    const perfisGlobais = ['Gestor', 'Supervisor', 'Kyanne', 'Financeiro', 'Admin'];
+    if (!perfisGlobais.includes(userProfile?.funcao)) {
       query = query.eq('colaborador_id', userProfile.id);
     }
 

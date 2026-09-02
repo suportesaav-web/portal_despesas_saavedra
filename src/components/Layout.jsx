@@ -38,7 +38,7 @@ export default function Layout({ user }) {
             <i className="bi bi-receipt"></i> Minhas Despesas
           </Link>
 
-          {(user?.profile?.funcao === 'Kyanne' || user?.profile?.funcao === 'Financeiro' || user?.profile?.funcao === 'Admin') && (
+          {['Gestor', 'Supervisor', 'Kyanne', 'Financeiro', 'Admin'].includes(user?.profile?.funcao) && (
             <Link to="/aprovacoes" className={`nav-link ${isActive('/aprovacoes')}`}>
               <i className="bi bi-check-circle"></i> Aprovações
             </Link>

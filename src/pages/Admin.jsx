@@ -102,7 +102,8 @@ export default function Admin({ user }) {
                       >
                         <option value="Admin">Administrador (Total)</option>
                         <option value="Financeiro">Financeiro (Pagar)</option>
-                        <option value="Kyanne">Técnico (Kyanne)</option>
+                        <option value="Gestor">Validação Técnica / Gestor</option>
+                        <option value="Kyanne">Validação Técnica (Legado Kyanne)</option>
                         <option value="Vendedor">Vendedor (Básico)</option>
                       </select>
                     </td>
@@ -152,7 +153,7 @@ export default function Admin({ user }) {
                 <label>Função no Sistema</label>
                 <select className="form-input" value={formData.funcao} onChange={e => setFormData({...formData, funcao: e.target.value})}>
                   <option value="Vendedor">Vendedor</option>
-                  <option value="Kyanne">Técnico (Kyanne)</option>
+                  <option value="Gestor">Validação Técnica / Gestor</option>
                   <option value="Financeiro">Financeiro</option>
                   <option value="Admin">Administrador (Total)</option>
                 </select>

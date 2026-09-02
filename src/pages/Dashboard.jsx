@@ -24,9 +24,12 @@ export default function Dashboard({ user }) {
 
   // KPIs
   const totalGasto = expenses.reduce((acc, curr) => acc + Number(curr.amount), 0);
-  const totalKyanne = expenses.filter(e => e.status === 'ABERTO').length;
+  const totalGestao = expenses.filter(e => e.status === 'ABERTO').length;
   const totalFinanceiro = expenses.filter(e => e.status === 'VALIDADO').length;
   const pendentes = expenses.filter(e => e.status === 'PENDENTE' || e.status === 'REPROVADO').length;
+
+  const isGestao = ['Gestor', 'Supervisor', 'Kyanne', 'Admin'].includes(user.profile?.funcao);
+  const isFinanceiro = ['Financeiro', 'Admin'].includes(user.profile?.funcao);
 
   return (
     <>
@@ -49,16 +52,16 @@ export default function Dashboard({ user }) {
             </div>
           )}
 
-          {/* Kyanne KPI */}
-          {(user.profile?.funcao === 'Kyanne' || user.profile?.funcao === 'Financeiro') && (
+          {/* Validação Técnica / Gestão KPI */}
+          {isGestao && (
             <div className="glass-panel stat-card" style={{ borderLeft: '4px solid var(--primary)' }} onClick={() => navigate('/aprovacoes')}>
-              <span className="stat-label">Aprovação Técnica (Kyanne)</span>
-              <span className="stat-value">{totalKyanne}</span>
+              <span className="stat-label">Aprovação Técnica / Gestão</span>
+              <span className="stat-value">{totalGestao}</span>
             </div>
           )}
 
           {/* Financeiro KPI */}
-          {user.profile?.funcao === 'Financeiro' && (
+          {isFinanceiro && (
             <div className="glass-panel stat-card" style={{ borderLeft: '4px solid var(--success)' }} onClick={() => navigate('/aprovacoes')}>
               <span className="stat-label">Aprovação Financeira</span>
               <span className="stat-value">{totalFinanceiro}</span>

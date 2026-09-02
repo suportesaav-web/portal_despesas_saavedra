@@ -97,7 +97,7 @@ export default function Relatorios({ user }) {
             <label>Status</label>
             <select className="form-input" value={filtroStatus} onChange={(e) => setFiltroStatus(e.target.value)}>
               <option value="TODOS">Todos</option>
-              <option value="ABERTO">Em Aberto (Fila Kyanne)</option>
+              <option value="ABERTO">Em Aberto (Validação Técnica)</option>
               <option value="VALIDADO">Validado (Fila Financeiro)</option>
               <option value="APROVADO">Pago (Aprovado)</option>
               <option value="REPROVADO">Reprovado</option>

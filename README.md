@@ -10,7 +10,7 @@
   <img src="https://img.shields.io/badge/React-19.2-blue?style=for-the-badge&logo=react" alt="React 19" />
   <img src="https://img.shields.io/badge/Vite-8.2-purple?style=for-the-badge&logo=vite" alt="Vite" />
   <img src="https://img.shields.io/badge/Supabase-Database%20%26%20Auth-green?style=for-the-badge&logo=supabase" alt="Supabase" />
-  <img src="https://img.shields.io/badge/Status-Em%20Desenvolvimento-orange?style=for-the-badge" alt="Status" />
+  <img src="https://img.shields.io/badge/Status-v0.1--alpha%20%7C%20Homologação%20%26%20Testes-yellow?style=for-the-badge" alt="Status" />
 </p>
 
 ---
@@ -57,8 +57,8 @@ O <strong>Portal de Despesas Saavedra</strong> é uma solução desenvolvida par
     </tr>
     <tr>
       <td><strong>✅ Esteira de Aprovações</strong></td>
-      <td>Fluxo em 2 etapas: Validação Técnica (Kyanne/Gestão) & Pagamento (Financeiro).</td>
-      <td>Kyanne, Financeiro, Admin</td>
+      <td>Fluxo em 2 etapas: Validação Técnica (Gestão) & Liquidação (Financeiro).</td>
+      <td>Gestores, Financeiro, Admin</td>
     </tr>
     <tr>
       <td><strong>📈 Relatórios & Exportação</strong></td>
@@ -78,22 +78,61 @@ O <strong>Portal de Despesas Saavedra</strong> é uma solução desenvolvida par
 <hr />
 
 <section id="fluxo-aprovacao">
-<h2>🔄 Fluxo de Aprovação de Despesas</h2>
+<h2>🔄 Fluxo e Modelo de Aprovação de Despesas</h2>
 
 ```mermaid
 flowchart LR
-    A([Vendedor Lança Despesa]) -->|Status: ABERTO| B[Aprovação Técnica / Kyanne]
-    B -->|Validar| C{Status: VALIDADO}
+    A([Colaborador Lança Despesa]) -->|Status: ABERTO| B[Validação Técnica / Gestão]
+    B -->|Aprovar| C{Status: VALIDADO}
     B -->|Reprovar| R([Status: REPROVADO])
-    C -->|Pagar / Liquidar| D([Status: APROVADO])
+    C -->|Liquidar / Pagar| D([Status: APROVADO])
     C -->|Reprovar| R
 ```
 
-<ol>
-  <li><strong>Lançamento:</strong> O colaborador cadastra o valor, data, categoria e anexa a foto da nota fiscal/recibo (<code>ABERTO</code>).</li>
-  <li><strong>Validação Técnica:</strong> A supervisão/gerência técnica confere a pertinência da despesa (<code>VALIDADO</code>).</li>
-  <li><strong>Liquidação Financeira:</strong> O time financeiro efetua o reembolso/pagamento e encerra o fluxo (<code>APROVADO</code>).</li>
-</ol>
+<h3>Matriz de Estados e Responsabilidades</h3>
+
+<table width="100%">
+  <thead>
+    <tr>
+      <th>Status do Registro</th>
+      <th>Responsável</th>
+      <th>Ação Executada</th>
+      <th>Próximo Status</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>ABERTO</code></td>
+      <td>Colaborador / Vendedor</td>
+      <td>Cadastra valor, data, categoria e envia foto/recibo</td>
+      <td>Fila da Validação Técnica</td>
+    </tr>
+    <tr>
+      <td><code>ABERTO</code></td>
+      <td>Validação Técnica / Gestão</td>
+      <td>Confere pertinência técnica e valores do deslocamento</td>
+      <td><code>VALIDADO</code> ou <code>REPROVADO</code></td>
+    </tr>
+    <tr>
+      <td><code>VALIDADO</code></td>
+      <td>Financeiro</td>
+      <td>Efetua o reembolso/pagamento bancário e encerra a despesa</td>
+      <td><code>APROVADO</code> (Liquidado)</td>
+    </tr>
+    <tr>
+      <td><code>VALIDADO</code></td>
+      <td>Financeiro</td>
+      <td>Identifica inconsistência cadastral ou tributária</td>
+      <td><code>REPROVADO</code></td>
+    </tr>
+    <tr>
+      <td><code>REPROVADO</code></td>
+      <td>Colaborador / Vendedor</td>
+      <td>Verifica o motivo apontado e corrige em novo lançamento</td>
+      <td>Reinício do fluxo</td>
+    </tr>
+  </tbody>
+</table>
 
 </section>
 
@@ -193,14 +232,34 @@ npm run build
 <hr />
 
 <section id="proximos-passos">
-<h2>📋 Próximos Passos & Roadmap</h2>
+<h2>📋 Roadmap de Evolução & Ciclo de Testes</h2>
 
+<h4>🎯 Marco 1: Saneamento & Preparação para Testes (Concluído)</h4>
 <ul>
-  <li>[ ] Ajustar verificação da role <code>Admin</code> no serviço de despesas para visibilidade global.</li>
-  <li>[ ] Incluir campo <code>Cliente / Obra</code> no modal de cadastro de despesas.</li>
-  <li>[ ] Adicionar cabeçalho BOM UTF-8 no download de CSV para compatibilidade com o Excel Windows.</li>
-  <li>[ ] Implementar sistema de toasts para substituição dos <code>alert()</code> nativos.</li>
-  <li>[ ] Configurar políticas de RLS (Row Level Security) refinadas no banco de dados Supabase.</li>
+  <li>[x] Desacoplamento de papéis: remoção de nomes pessoais em rotulagem de perfis e esteira.</li>
+  <li>[x] Visão global de despesas configurada para perfis <code>Admin</code> e <code>Gestor</code>.</li>
+  <li>[x] Documentação oficial da matriz de aprovações e fluxo de estados.</li>
+</ul>
+
+<h4>🧪 Marco 2: Bateria de Testes Controlados (Alpha Test)</h4>
+<ul>
+  <li>[ ] <strong>Teste de Upload no Storage:</strong> Validação de envio de fotos e PDFs direto de celulares em campo.</li>
+  <li>[ ] <strong>Teste Ponta a Ponta do Ciclo:</strong> Lançamento &rarr; Validação Técnica &rarr; Liquidação Financeira &rarr; Extrato.</li>
+  <li>[ ] <strong>Auditoria de RLS (Row Level Security):</strong> Garantir isolamento dos lançamentos entre colaboradores.</li>
+</ul>
+
+<h4>✨ Marco 3: Usabilidade & Refinamento (Beta)</h4>
+<ul>
+  <li>[ ] <strong>Campo Cliente / Obra:</strong> Inclusão do campo opcional no modal de cadastro de despesas.</li>
+  <li>[ ] <strong>Notificações Amigáveis:</strong> Implementação de sistema de toasts visuais no lugar dos <code>alert()</code> nativos.</li>
+  <li>[ ] <strong>Compatibilidade com Excel:</strong> Inclusão de BOM UTF-8 no CSV de relatórios para abertura direta no Windows.</li>
+</ul>
+
+<h4>🚀 Marco 4: Piloto em Produção & Rollout Geral</h4>
+<ul>
+  <li>[ ] Homologação assistida com usuários-piloto (1 vendedor, 1 gestor técnico e 1 operador financeiro).</li>
+  <li>[ ] Ajustes finos pós-feedback de campo.</li>
+  <li>[ ] Rollout oficial para toda a equipe comercial e desativação da planilha legada.</li>
 </ul>
 
 </section>
