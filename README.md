@@ -47,22 +47,22 @@ O <strong>SAAV EXPENSES</strong> é o sistema oficial de gestão de despesas da 
     </tr>
     <tr>
       <td><strong>📊 Dashboard com KPIs</strong></td>
-      <td>Métricas em tempo real de despesas pendentes, valores acumulados e status.</td>
+      <td>Métricas em tempo real de despesas pendentes, alerta de prazo do mês e status.</td>
       <td>Personalizado por Função</td>
     </tr>
     <tr>
-      <td><strong>📝 Minhas Despesas</strong></td>
-      <td>Lançamento de despesas, categoria, valor, data e anexo de comprovante/foto.</td>
+      <td><strong>📝 Minhas Despesas (Visitas)</strong></td>
+      <td>Lançamento com Cliente/Onde esteve, Data, Horário, Plano de Contas e Comprovante.</td>
       <td>Vendedor / Colaborador</td>
     </tr>
     <tr>
       <td><strong>✅ Esteira de Aprovações</strong></td>
-      <td>Fluxo em 2 etapas: Validação Técnica (Gestão) & Liquidação (Financeiro).</td>
+      <td>Fluxo em 2 etapas: Validação no CRM (Administrativo) & Liquidação (Financeiro).</td>
       <td>Gestores, Financeiro, Admin</td>
     </tr>
     <tr>
       <td><strong>📈 Relatórios & Exportação</strong></td>
-      <td>Filtros por período/status e exportação direta para planilha Excel (CSV UTF-8).</td>
+      <td>Filtros por período/status/categoria e exportação para Excel (CSV com BOM UTF-8).</td>
       <td>Todos (com escopo de perfil)</td>
     </tr>
     <tr>
@@ -78,23 +78,26 @@ O <strong>SAAV EXPENSES</strong> é o sistema oficial de gestão de despesas da 
 <hr />
 
 <section id="fluxo-aprovacao">
-<h2>🔄 Fluxo e Modelo de Aprovação de Despesas</h2>
+<h2>🔄 Fluxo Oficial de Prestação de Contas</h2>
 
 ```mermaid
-flowchart LR
-    A([Colaborador Lança Despesa]) -->|Status: ABERTO| B[Validação Técnica / Gestão]
-    B -->|Aprovar| C{Status: VALIDADO}
-    B -->|Reprovar| R([Status: REPROVADO])
-    C -->|Liquidar / Pagar| D([Status: APROVADO])
-    C -->|Reprovar| R
+flowchart TD
+    A([Vendedor Realiza Visita em Campo]) --> B[Lança no SAAV EXPENSES: Cliente, Data, Hora, Categoria, Valor e Anexo]
+    B -->|Prazo: até último dia útil do mês| C[1ª Etapa: Administrativo]
+    C -->|Confere se visita consta no CRM| D{Visita no CRM OK?}
+    D -->|Sim| E[Status: VALIDADO]
+    D -->|Não| R([Status: REPROVADO com Justificativa])
+    E -->|Fila de Pagamento| F[2ª Etapa: Financeiro]
+    F -->|Programa Reembolso / Transfere| G([Status: APROVADO / Reembolsado])
+    F -->|Inconsistência| R
 ```
 
-<h3>Matriz de Estados e Responsabilidades</h3>
+<h3>Matriz de Responsabilidades da Esteira</h3>
 
 <table width="100%">
   <thead>
     <tr>
-      <th>Status do Registro</th>
+      <th>Status</th>
       <th>Responsável</th>
       <th>Ação Executada</th>
       <th>Próximo Status</th>
@@ -103,36 +106,44 @@ flowchart LR
   <tbody>
     <tr>
       <td><code>ABERTO</code></td>
-      <td>Colaborador / Vendedor</td>
-      <td>Cadastra valor, data, categoria e envia foto/recibo</td>
-      <td>Fila da Validação Técnica</td>
+      <td>Vendedor</td>
+      <td>Lança a despesa de visita informando cliente, data, horário, categoria e foto do recibo</td>
+      <td>Fila da Validação no CRM</td>
     </tr>
     <tr>
       <td><code>ABERTO</code></td>
-      <td>Validação Técnica / Gestão</td>
-      <td>Confere pertinência técnica e valores do deslocamento</td>
+      <td>Administrativo / Gestão</td>
+      <td>Confere se a visita e horário foram devidamente registrados no CRM da Saavedra</td>
       <td><code>VALIDADO</code> ou <code>REPROVADO</code></td>
     </tr>
     <tr>
       <td><code>VALIDADO</code></td>
       <td>Financeiro</td>
-      <td>Efetua o reembolso/pagamento bancário e encerra a despesa</td>
+      <td>Confere os dados fiscais e programa o reembolso bancário ao colaborador</td>
       <td><code>APROVADO</code> (Liquidado)</td>
     </tr>
     <tr>
-      <td><code>VALIDADO</code></td>
-      <td>Financeiro</td>
-      <td>Identifica inconsistência cadastral ou tributária</td>
       <td><code>REPROVADO</code></td>
-    </tr>
-    <tr>
-      <td><code>REPROVADO</code></td>
-      <td>Colaborador / Vendedor</td>
-      <td>Verifica o motivo apontado e corrige em novo lançamento</td>
-      <td>Reinício do fluxo</td>
+      <td>Vendedor</td>
+      <td>Verifica a justificativa apontada (ex: visita não localizada no CRM) e regulariza o apontamento</td>
+      <td>Novo lançamento</td>
     </tr>
   </tbody>
 </table>
+
+</section>
+
+<hr />
+
+<section id="plano-contas">
+<h2>📑 Plano de Categorias de Despesas</h2>
+
+<ul>
+  <li><strong>2.3 - DESPESAS OPERACIONAIS:</strong> 2.3.1 Estacionamento, 2.3.2 Pedágio, 2.3.3 Frango para Treinamento, 2.3.4 Carne Bovina Treinamento, 2.3.5 Aluguel Mobi, 2.3.6 Aluguel T-Cross.</li>
+  <li><strong>2.4 - DESPESAS COM MARKETING:</strong> 2.4.1 Amostras, 2.4.2 Brindes, 2.4.3 Coffee, 2.4.4 Produtos Promocionais, 2.4.5 Balas, 2.4.6 Tratamento de Fotos, 2.4.7 Pipoca, 2.4.8 Paçoca, 2.4.9 Pirulito, 2.4.10 Mariola, 2.4.11 Mouse Pad, 2.4.12 Bombom.</li>
+  <li><strong>2.5 - OUTRAS DESPESAS:</strong> 2.5.1 Material Escritório, 2.5.2 Outros.</li>
+  <li><strong>Demais Grupos Contábeis:</strong> 2.6 Despesas Operacionais Gerais, 2.7 Outra Despesa, 2.8 Despesa Financeira, 2.9 Impostos e 2.10 Investimento.</li>
+</ul>
 
 </section>
 
