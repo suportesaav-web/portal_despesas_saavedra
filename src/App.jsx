@@ -36,7 +36,7 @@ function App() {
     }
   }
 
-  if (loading) return <div style={{ display: 'flex', height: '100vh', alignItems: 'center', justifyContent: 'center' }}>Carregando Portal Saavedra...</div>;
+  if (loading) return <div style={{ display: 'flex', height: '100vh', alignItems: 'center', justifyContent: 'center' }}>Carregando SAAV EXPENSES...</div>;
 
   if (!user) {
     return <Login onLogin={checkUser} />;

@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🏛️ Portal de Gestão de Despesas — Saavedra
+# 🏛️ SAAV EXPENSES — Sistema de Despesas da Saavedra
 
 <p align="center">
   <strong>Sistema Corporativo para Lançamento, Validação Técnica e Pagamento de Despesas Comerciais</strong>
@@ -21,7 +21,7 @@
 <h2>📖 Sobre o Projeto</h2>
 
 <p>
-O <strong>Portal de Despesas Saavedra</strong> é uma solução desenvolvida para substituir a antiga planilha Google Apps Script legada, modernizando o fluxo de prestação de contas, aprovações gerenciais e liquidação financeira das despesas de deslocamento, alimentação e operações da equipe externa/comercial.
+O <strong>SAAV EXPENSES</strong> é o sistema oficial de gestão de despesas da <strong>Saavedra</strong>, desenvolvido para substituir a antiga planilha Google Apps Script legada, modernizando o fluxo de prestação de contas, aprovações gerenciais e liquidação financeira das despesas de deslocamento, alimentação e operações da equipe externa/comercial.
 </p>
 
 </section>
@@ -155,7 +155,7 @@ flowchart LR
 <h2>📂 Estrutura de Pastas</h2>
 
 ```text
-portal_despesas_saavedra/
+saav_expenses/
 ├── .env.example            # Modelo das variáveis de ambiente
 ├── .gitignore              # Regras de exclusão do Git
 ├── package.json            # Dependências e scripts do projeto

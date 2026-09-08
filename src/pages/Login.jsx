@@ -27,8 +27,8 @@ export default function Login({ onLogin }) {
     <div style={{ display: 'flex', minHeight: '100vh', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
       <div className="glass-panel" style={{ width: '100%', maxWidth: '400px', padding: '40px' }}>
         <div style={{ textAlign: 'center', marginBottom: '32px' }}>
-          <h1 style={{ fontSize: '1.75rem', marginBottom: '8px' }}>Portal Saavedra</h1>
-          <p style={{ color: 'var(--text-muted)' }}>Faça login para continuar</p>
+          <h1 style={{ fontSize: '1.75rem', marginBottom: '8px' }}>SAAV EXPENSES</h1>
+          <p style={{ color: 'var(--text-muted)' }}>Sistema de Despesas da Saavedra</p>
         </div>
 
         {error && (
