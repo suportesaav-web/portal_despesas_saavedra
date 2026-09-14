@@ -47,29 +47,37 @@ export default function Dashboard({ user }) {
 
       {/* Banner de Fechamento Mensal */}
       <div 
-        className="glass-panel" 
+        className="glass-panel prazo-banner" 
         style={{ 
           marginBottom: '24px', 
-          padding: '16px 20px', 
-          display: 'flex', 
-          alignItems: 'center', 
-          justifyContent: 'space-between',
-          borderLeft: prazoInfo.ehUrgente ? '4px solid var(--warning)' : '4px solid var(--primary)' 
+          borderLeft: prazoInfo.ehUrgente ? '4px solid var(--warning)' : '4px solid var(--primary)',
+          background: prazoInfo.ehUrgente ? 'rgba(234, 179, 8, 0.08)' : 'rgba(99, 102, 241, 0.08)'
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <span style={{ fontSize: '1.4rem' }}>📅</span>
+          <span style={{ fontSize: '1.4rem', flexShrink: 0 }}>📅</span>
           <div>
-            <strong>Fechamento Mensal: {prazoInfo.formatado} (Último dia útil)</strong>
-            <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+            <strong>Fechamento Mensal: {prazoInfo.formatado}</strong> (Último dia útil)
+            <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '2px' }}>
               {prazoInfo.expirado 
                 ? 'Prazo do ciclo atual encerrado.' 
-                : `Lançamentos de visitas devem ser submetidos até o prazo. (${prazoInfo.diasRestantes} dias restantes)`}
+                : `Lançamentos de visitas devem ser submetidos até o prazo (${prazoInfo.diasRestantes} dias restantes).`}
             </div>
           </div>
         </div>
-        <button className="btn" style={{ fontSize: '0.85rem' }} onClick={() => navigate('/despesas')}>
-          Ir para Despesas
+        <button 
+          type="button"
+          className="btn" 
+          style={{ 
+            fontSize: '0.85rem', 
+            background: 'rgba(255, 255, 255, 0.1)', 
+            border: '1px solid rgba(255, 255, 255, 0.2)',
+            color: 'var(--text-main)',
+            whiteSpace: 'nowrap'
+          }} 
+          onClick={() => navigate('/despesas')}
+        >
+          Ir para Despesas →
         </button>
       </div>
 
