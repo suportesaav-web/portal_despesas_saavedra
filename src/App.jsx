@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Analytics } from '@vercel/analytics/react';
+import { SpeedInsights } from '@vercel/speed-insights/react';
 import { authService } from './services/auth';
 import './index.css';
 
@@ -42,6 +43,7 @@ function App() {
       <>
         <Login onLogin={checkUser} />
         <Analytics />
+        <SpeedInsights />
       </>
     );
   }
@@ -61,6 +63,7 @@ function App() {
         </Routes>
       </BrowserRouter>
       <Analytics />
+      <SpeedInsights />
     </>
   );
 }
