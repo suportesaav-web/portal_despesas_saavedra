@@ -15,7 +15,7 @@ function createClientInstance() {
   });
 }
 
-const SENHA_PADRAO = 'Saavedra2026!';
+const SENHA_PADRAO = 'saavedra123';
 
 // Usuários da Saavedra para a matriz de testes
 const USERS = {

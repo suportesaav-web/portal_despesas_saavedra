@@ -15,7 +15,7 @@ function createClientInstance() {
   });
 }
 
-const SENHA_PADRAO = 'Saavedra2026!';
+const SENHA_PADRAO = 'saavedra123';
 
 // Matriz conceitual oficial da Seção 12
 const TRANSOES_PERMITIDAS = {

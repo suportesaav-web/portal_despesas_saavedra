@@ -15,7 +15,7 @@ function createClientInstance() {
   });
 }
 
-const SENHA_PADRAO = 'Saavedra2026!';
+const SENHA_PADRAO = 'saavedra123';
 
 const USERS = {
   colaborador: { email: 'cristiana.gehm@saavedra.com.br', papel: 'Vendedor' },
@@ -146,7 +146,7 @@ async function runE2ETests() {
     // 1. Gestor busca a fila de abertas
     const { data: filaGestor, error: errFilaG } = await clientGestor
       .from('expenses')
-      .select('*, colaboradores(nome, email)')
+      .select('*, colaboradores!colaborador_id(nome, email)')
       .eq('id', expense1Id)
       .single();
 

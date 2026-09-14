@@ -46,7 +46,7 @@ const usuarios = [
 
 async function criarUsuarios() {
   console.log("Iniciando criação em lote de usuários...\n");
-  const senhaPadrao = 'Saavedra2026!'; // Senha padrão temporária
+  const senhaPadrao = 'saavedra123'; // Senha padrão temporária
 
   for (const u of usuarios) {
     try {

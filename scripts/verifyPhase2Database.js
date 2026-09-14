@@ -110,7 +110,7 @@ async function verifyDatabase() {
       .from('expenses')
       .select(`
         id, descricao, amount, status,
-        colaboradores (id, nome, email, funcao)
+        colaboradores!colaborador_id (id, nome, email, funcao)
       `)
       .eq('id', tempExpenseId)
       .single();

@@ -19,7 +19,7 @@ function createSupabaseClient() {
   });
 }
 
-const SENHA_PADRAO = 'Saavedra2026!';
+const SENHA_PADRAO = 'saavedra123';
 
 async function runE2ETest() {
   console.log('====================================================');

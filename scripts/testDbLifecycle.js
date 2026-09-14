@@ -76,7 +76,7 @@ async function testLifecycleWithAuth() {
     .from('expenses')
     .select(`
       id, descricao, amount, date, status, cliente,
-      colaboradores (nome, email)
+      colaboradores!colaborador_id (nome, email)
     `)
     .eq('id', testExpenseId)
     .single();

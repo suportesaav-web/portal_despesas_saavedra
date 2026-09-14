@@ -8,7 +8,7 @@ export const expensesService = {
       .from('expenses')
       .select(`
         *,
-        colaboradores (nome, email)
+        colaboradores!colaborador_id (nome, email)
       `)
       .order('date', { ascending: false });
 
