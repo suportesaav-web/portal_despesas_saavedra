@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { expensesService } from '../services/expenses';
 import { CATEGORIAS_DESPESAS, getCategoriaByCodigo } from '../data/categories';
 import { getInfoPrazoMesAtual } from '../utils/dateUtils';
@@ -12,6 +12,7 @@ export default function Despesas({ user }) {
   const [editingExpense, setEditingExpense] = useState(null);
   const [saving, setSaving] = useState(false);
   const [file, setFile] = useState(null);
+  const [filePreview, setFilePreview] = useState(null);
   const [feedbackMsg, setFeedbackMsg] = useState(null);
   const [modalError, setModalError] = useState(null);
 
@@ -19,12 +20,27 @@ export default function Despesas({ user }) {
   const [comprovanteAtivo, setComprovanteAtivo] = useState(null);
   const [historicoAtivo, setHistoricoAtivo] = useState(null);
 
+  // Máscara de Moeda Express
+  const [displayAmount, setDisplayAmount] = useState('');
+
   // Informações do prazo do mês
   const prazoInfo = getInfoPrazoMesAtual();
 
   // Data e hora atuais como padrão
   const dataHoje = new Date().toISOString().split('T')[0];
   const horaAgora = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
+  // Lista preditiva de clientes sugeridos (ordenada por frequência)
+  const clientesSugeridos = useMemo(() => {
+    const map = {};
+    expenses.forEach(d => {
+      if (d.cliente && d.cliente.trim()) {
+        const c = d.cliente.trim();
+        map[c] = (map[c] || 0) + 1;
+      }
+    });
+    return Object.keys(map).sort((a, b) => map[b] - map[a]);
+  }, [expenses]);
 
   const [formData, setFormData] = useState({
     descricao: '',
@@ -53,6 +69,24 @@ export default function Despesas({ user }) {
     loadData();
   }, [loadData]);
 
+  // Função de máscara de moeda em tempo real (R$ 0,00)
+  function formatCurrencyInput(val) {
+    const cleanDigits = String(val || '').replace(/\D/g, '');
+    if (!cleanDigits) return { display: '', number: '' };
+    const num = Number(cleanDigits) / 100;
+    const display = num.toLocaleString('pt-BR', {
+      style: 'currency',
+      currency: 'BRL'
+    });
+    return { display, number: num.toFixed(2) };
+  }
+
+  const handleAmountChange = (e) => {
+    const { display, number } = formatCurrencyInput(e.target.value);
+    setDisplayAmount(display);
+    setFormData(prev => ({ ...prev, amount: number }));
+  };
+
   const handleOpenNew = () => {
     setEditingExpense(null);
     setFormData({
@@ -63,7 +97,9 @@ export default function Despesas({ user }) {
       cliente: '',
       categoria_codigo: '2.3.1'
     });
+    setDisplayAmount('');
     setFile(null);
+    setFilePreview(null);
     setModalError(null);
     setShowModal(true);
   };
@@ -80,7 +116,16 @@ export default function Despesas({ user }) {
       cliente: despesa.cliente || '',
       categoria_codigo: despesa.categoria_codigo || '2.3.1'
     });
+
+    if (despesa.amount) {
+      const num = Number(despesa.amount);
+      setDisplayAmount(num.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }));
+    } else {
+      setDisplayAmount('');
+    }
+
     setFile(null);
+    setFilePreview(null);
     setModalError(null);
     setShowModal(true);
   };
@@ -94,6 +139,7 @@ export default function Despesas({ user }) {
     setModalError(null);
     if (!selectedFile) {
       setFile(null);
+      setFilePreview(null);
       return;
     }
 
@@ -103,6 +149,7 @@ export default function Despesas({ user }) {
       setModalError('O arquivo selecionado excede o limite máximo permitido de 10MB.');
       e.target.value = '';
       setFile(null);
+      setFilePreview(null);
       return;
     }
 
@@ -112,10 +159,16 @@ export default function Despesas({ user }) {
       setModalError('Formato inválido. Por favor, envie uma foto (JPG, PNG, WebP) ou arquivo PDF.');
       e.target.value = '';
       setFile(null);
+      setFilePreview(null);
       return;
     }
 
     setFile(selectedFile);
+    if (selectedFile.type.startsWith('image/')) {
+      setFilePreview(URL.createObjectURL(selectedFile));
+    } else {
+      setFilePreview({ isPdf: true, name: selectedFile.name });
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -380,26 +433,56 @@ export default function Despesas({ user }) {
             )}
 
             <form onSubmit={handleSubmit}>
-              {/* Onde Esteve / Cliente */}
+              {/* Onde Esteve / Cliente com Autocomplete */}
               <div className="form-group">
                 <label>
                   Onde esteve? (Cliente / Local da Visita) <span style={{ color: 'var(--danger)' }}>*</span>
                 </label>
                 <input 
                   type="text" 
+                  list="clientes-sugeridos"
                   className="form-input" 
                   required 
                   disabled={saving}
-                  placeholder="Ex: Supermercado XYZ - Unidade Centro"
+                  placeholder="Digite ou escolha um cliente visitado..."
                   value={formData.cliente} 
                   onChange={e => setFormData({ ...formData, cliente: e.target.value })} 
                 />
-                <small className="text-muted" style={{ fontSize: '0.75rem' }}>
-                  Informe o cliente exatamente como registrado no CRM para agilizar a aprovação.
+                <datalist id="clientes-sugeridos">
+                  {clientesSugeridos.map(c => (
+                    <option key={c} value={c} />
+                  ))}
+                </datalist>
+
+                {clientesSugeridos.length > 0 && (
+                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '6px', alignItems: 'center' }}>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Frequentes:</span>
+                    {clientesSugeridos.slice(0, 4).map(c => (
+                      <button
+                        key={c}
+                        type="button"
+                        className="badge"
+                        style={{ 
+                          background: 'rgba(99, 102, 241, 0.15)', 
+                          color: '#a5b4fc', 
+                          border: '1px solid rgba(99, 102, 241, 0.3)', 
+                          cursor: 'pointer',
+                          padding: '2px 8px',
+                          fontSize: '0.75rem'
+                        }}
+                        onClick={() => setFormData(prev => ({ ...prev, cliente: c }))}
+                      >
+                        + {c}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                <small className="text-muted" style={{ fontSize: '0.75rem', display: 'block', marginTop: '4px' }}>
+                  Informe o cliente exatamente como registrado no CRM para agilizar a validação.
                 </small>
               </div>
 
-              {/* Data e Horário */}
+              {/* Data e Horário com Atalho Agora */}
               <div className="form-row">
                 <div className="form-group">
                   <label>Data da Despesa <span style={{ color: 'var(--danger)' }}>*</span></label>
@@ -413,7 +496,28 @@ export default function Despesas({ user }) {
                   />
                 </div>
                 <div className="form-group">
-                  <label>Horário (Aprox.) <span style={{ color: 'var(--danger)' }}>*</span></label>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                    <label style={{ margin: 0 }}>Horário <span style={{ color: 'var(--danger)' }}>*</span></label>
+                    <button
+                      type="button"
+                      style={{
+                        background: 'rgba(255,255,255,0.08)',
+                        border: '1px solid rgba(255,255,255,0.15)',
+                        borderRadius: '4px',
+                        color: 'var(--text-main)',
+                        fontSize: '0.75rem',
+                        padding: '2px 6px',
+                        cursor: 'pointer'
+                      }}
+                      onClick={() => setFormData(prev => ({
+                        ...prev,
+                        hora: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+                      }))}
+                      title="Definir horário atual"
+                    >
+                      🕒 Agora
+                    </button>
+                  </div>
                   <input 
                     type="time" 
                     className="form-input" 
@@ -446,21 +550,23 @@ export default function Despesas({ user }) {
                 </select>
               </div>
 
-              {/* Valor e Descrição */}
+              {/* Valor com Máscara Moeda e Descrição */}
               <div className="form-row">
                 <div className="form-group">
                   <label>Valor Gasto (R$) <span style={{ color: 'var(--danger)' }}>*</span></label>
                   <input 
-                    type="number" 
-                    step="0.01" 
-                    min="0.01"
+                    type="text" 
+                    inputMode="numeric"
                     className="form-input" 
                     required 
                     disabled={saving}
-                    placeholder="0,00"
-                    value={formData.amount} 
-                    onChange={e => setFormData({ ...formData, amount: e.target.value })} 
+                    placeholder="R$ 0,00"
+                    value={displayAmount} 
+                    onChange={handleAmountChange} 
                   />
+                  <small className="text-muted" style={{ fontSize: '0.75rem' }}>
+                    Digite apenas os números (centavos automáticos).
+                  </small>
                 </div>
                 <div className="form-group">
                   <label>Descrição / Justificativa <span style={{ color: 'var(--danger)' }}>*</span></label>
@@ -476,7 +582,7 @@ export default function Despesas({ user }) {
                 </div>
               </div>
 
-              {/* Foto / Comprovante */}
+              {/* Foto / Comprovante com Preview */}
               <div className="form-group">
                 <label>Foto do Comprovante / Recibo / Cupom Fiscal</label>
                 <input 
@@ -486,7 +592,49 @@ export default function Despesas({ user }) {
                   disabled={saving}
                   onChange={handleFileChange} 
                 />
-                <small className="text-muted" style={{ fontSize: '0.75rem' }}>
+                
+                {/* Miniatura / Preview da foto selecionada */}
+                {filePreview && (
+                  <div style={{ 
+                    marginTop: '10px', 
+                    padding: '10px 14px', 
+                    background: 'rgba(255, 255, 255, 0.04)', 
+                    borderRadius: '8px', 
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '12px'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      {typeof filePreview === 'string' ? (
+                        <img 
+                          src={filePreview} 
+                          alt="Pré-visualização do recibo" 
+                          style={{ width: '48px', height: '48px', objectFit: 'cover', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.2)' }} 
+                        />
+                      ) : (
+                        <span style={{ fontSize: '1.8rem' }}>📄</span>
+                      )}
+                      <div>
+                        <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-main)' }}>{file?.name}</div>
+                        <div style={{ fontSize: '0.75rem', color: '#10b981' }}>
+                          ✓ {(file?.size ? (file.size / 1024).toFixed(0) : 0)} KB • Pronto para envio
+                        </div>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      className="btn"
+                      style={{ padding: '4px 10px', fontSize: '0.75rem', background: 'rgba(239, 68, 68, 0.15)', color: '#f87171', border: 'none' }}
+                      onClick={() => { setFile(null); setFilePreview(null); }}
+                    >
+                      Remover
+                    </button>
+                  </div>
+                )}
+
+                <small className="text-muted" style={{ fontSize: '0.75rem', display: 'block', marginTop: '6px' }}>
                   📷 Toque para fotografar com a câmera do celular ou escolher arquivo (JPG, PNG, WebP, PDF até 10MB).
                 </small>
               </div>
