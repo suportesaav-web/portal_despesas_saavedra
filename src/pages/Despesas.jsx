@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { expensesService } from '../services/expenses';
 import { CATEGORIAS_DESPESAS, getCategoriaByCodigo } from '../data/categories';
 import { getInfoPrazoMesAtual } from '../utils/dateUtils';
@@ -15,6 +15,10 @@ export default function Despesas({ user }) {
   const [filePreview, setFilePreview] = useState(null);
   const [feedbackMsg, setFeedbackMsg] = useState(null);
   const [modalError, setModalError] = useState(null);
+
+  // Referências para Câmera Direta e Galeria
+  const cameraInputRef = useRef(null);
+  const galleryInputRef = useRef(null);
 
   // Estados dos Novos Modais de Comprovante e Histórico
   const [comprovanteAtivo, setComprovanteAtivo] = useState(null);
@@ -582,61 +586,135 @@ export default function Despesas({ user }) {
                 </div>
               </div>
 
-              {/* Foto / Comprovante com Preview */}
+              {/* Foto / Comprovante com Câmera Direta e Galeria */}
               <div className="form-group">
-                <label>Foto do Comprovante / Recibo / Cupom Fiscal</label>
+                <label>Comprovante / Recibo Fiscal</label>
+                
+                {/* Inputs Ocultos (Câmera e Galeria) */}
                 <input 
+                  ref={cameraInputRef}
                   type="file" 
-                  accept="image/*,application/pdf" 
-                  className="form-input" 
+                  accept="image/*" 
+                  capture="environment"
+                  style={{ display: 'none' }}
                   disabled={saving}
                   onChange={handleFileChange} 
                 />
-                
-                {/* Miniatura / Preview da foto selecionada */}
-                {filePreview && (
+                <input 
+                  ref={galleryInputRef}
+                  type="file" 
+                  accept="image/*,application/pdf" 
+                  style={{ display: 'none' }}
+                  disabled={saving}
+                  onChange={handleFileChange} 
+                />
+
+                {/* Se ainda não escolheu um novo arquivo, exibe os botões de ação */}
+                {!filePreview ? (
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginTop: '6px' }}>
+                    {/* Botão Câmera Direta */}
+                    <button
+                      type="button"
+                      className="btn"
+                      style={{
+                        background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.25) 0%, rgba(99, 102, 241, 0.12) 100%)',
+                        border: '1px solid rgba(99, 102, 241, 0.45)',
+                        color: '#c7d2fe',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        padding: '16px 10px',
+                        borderRadius: '12px',
+                        gap: '6px',
+                        cursor: 'pointer',
+                        textAlign: 'center'
+                      }}
+                      onClick={() => cameraInputRef.current?.click()}
+                      disabled={saving}
+                    >
+                      <span style={{ fontSize: '1.8rem' }}>📷</span>
+                      <strong style={{ fontSize: '0.92rem', color: '#fff' }}>Tirar Foto Agora</strong>
+                      <span style={{ fontSize: '0.72rem', opacity: 0.85 }}>Abre a câmera do celular</span>
+                    </button>
+
+                    {/* Botão Galeria / PDF */}
+                    <button
+                      type="button"
+                      className="btn"
+                      style={{
+                        background: 'rgba(255, 255, 255, 0.05)',
+                        border: '1px solid rgba(255, 255, 255, 0.14)',
+                        color: 'var(--text-main)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        padding: '16px 10px',
+                        borderRadius: '12px',
+                        gap: '6px',
+                        cursor: 'pointer',
+                        textAlign: 'center'
+                      }}
+                      onClick={() => galleryInputRef.current?.click()}
+                      disabled={saving}
+                    >
+                      <span style={{ fontSize: '1.8rem' }}>📁</span>
+                      <strong style={{ fontSize: '0.92rem' }}>Galeria ou PDF</strong>
+                      <span style={{ fontSize: '0.72rem', opacity: 0.75 }}>Escolher arquivo salvo</span>
+                    </button>
+                  </div>
+                ) : (
+                  /* Miniatura / Preview da foto selecionada */
                   <div style={{ 
                     marginTop: '10px', 
-                    padding: '10px 14px', 
-                    background: 'rgba(255, 255, 255, 0.04)', 
-                    borderRadius: '8px', 
-                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    padding: '12px 16px', 
+                    background: 'rgba(16, 185, 129, 0.06)', 
+                    borderRadius: '10px', 
+                    border: '1px solid rgba(16, 185, 129, 0.3)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
                     gap: '12px'
                   }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', overflow: 'hidden' }}>
                       {typeof filePreview === 'string' ? (
                         <img 
                           src={filePreview} 
                           alt="Pré-visualização do recibo" 
-                          style={{ width: '48px', height: '48px', objectFit: 'cover', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.2)' }} 
+                          style={{ width: '54px', height: '54px', objectFit: 'cover', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.2)' }} 
                         />
                       ) : (
-                        <span style={{ fontSize: '1.8rem' }}>📄</span>
+                        <span style={{ fontSize: '2rem' }}>📄</span>
                       )}
-                      <div>
-                        <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-main)' }}>{file?.name}</div>
-                        <div style={{ fontSize: '0.75rem', color: '#10b981' }}>
-                          ✓ {(file?.size ? (file.size / 1024).toFixed(0) : 0)} KB • Pronto para envio
+                      <div style={{ overflow: 'hidden' }}>
+                        <div style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-main)', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
+                          {file?.name}
+                        </div>
+                        <div style={{ fontSize: '0.75rem', color: '#34d399', fontWeight: 500, marginTop: '2px' }}>
+                          ✓ Foto capturada ({(file?.size ? (file.size / 1024).toFixed(0) : 0)} KB)
                         </div>
                       </div>
                     </div>
-                    <button
-                      type="button"
-                      className="btn"
-                      style={{ padding: '4px 10px', fontSize: '0.75rem', background: 'rgba(239, 68, 68, 0.15)', color: '#f87171', border: 'none' }}
-                      onClick={() => { setFile(null); setFilePreview(null); }}
-                    >
-                      Remover
-                    </button>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button
+                        type="button"
+                        className="btn"
+                        style={{ padding: '6px 12px', fontSize: '0.78rem', background: 'rgba(239, 68, 68, 0.15)', color: '#f87171', border: 'none' }}
+                        onClick={() => { setFile(null); setFilePreview(null); }}
+                      >
+                        Trocar / Remover
+                      </button>
+                    </div>
                   </div>
                 )}
 
-                <small className="text-muted" style={{ fontSize: '0.75rem', display: 'block', marginTop: '6px' }}>
-                  📷 Toque para fotografar com a câmera do celular ou escolher arquivo (JPG, PNG, WebP, PDF até 10MB).
-                </small>
+                {/* Se estiver editando e já tiver comprovante anterior */}
+                {editingExpense?.foto_url && !filePreview && (
+                  <div style={{ marginTop: '8px', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                    ℹ️ Comprovante anterior já anexado. Tire uma foto ou escolha outro arquivo acima apenas se desejar substituir.
+                  </div>
+                )}
               </div>
 
               <div className="modal-actions" style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '24px' }}>
