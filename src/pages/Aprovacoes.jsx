@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { expensesService } from '../services/expenses';
 
 export default function Aprovacoes({ user }) {
@@ -12,25 +12,28 @@ export default function Aprovacoes({ user }) {
   const [reprovandoId, setReprovandoId] = useState(null);
   const [motivoReprovacao, setMotivoReprovacao] = useState('');
   const [processando, setProcessando] = useState(false);
+  const [feedbackMsg, setFeedbackMsg] = useState(null);
+  const [modalError, setModalError] = useState(null);
 
   const isAdministrativo = ['Gestor', 'Supervisor', 'Kyanne', 'Admin'].includes(user?.profile?.funcao);
   const isFinanceiro = ['Financeiro', 'Admin'].includes(user?.profile?.funcao);
 
-  useEffect(() => {
-    loadData();
-  }, [user]);
-
-  async function loadData() {
+  const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await expensesService.getExpenses(user.profile);
+      const data = await expensesService.getExpenses(user?.profile);
       setExpenses(data);
     } catch (e) {
       console.error(e);
+      setFeedbackMsg({ type: 'error', text: 'Não foi possível atualizar a lista de despesas: ' + e.message });
     } finally {
       setLoading(false);
     }
-  }
+  }, [user]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   // Ação de Validação no CRM (Administrativo)
   const handleValidarCRM = async (id, cliente) => {
@@ -38,11 +41,13 @@ export default function Aprovacoes({ user }) {
       return;
     }
     setProcessando(true);
+    setFeedbackMsg(null);
     try {
       await expensesService.updateStatus(id, 'VALIDADO', null, user.id);
+      setFeedbackMsg({ type: 'success', text: `Despesa da visita em "${cliente || 'cliente'}" validada com sucesso no CRM!` });
       loadData();
     } catch (e) {
-      alert('Erro ao validar visita: ' + e.message);
+      setFeedbackMsg({ type: 'error', text: 'Erro ao validar visita: ' + e.message });
     } finally {
       setProcessando(false);
     }
@@ -50,15 +55,17 @@ export default function Aprovacoes({ user }) {
 
   // Ação de Reembolso / Liquidação (Financeiro)
   const handleLiquidar = async (id, valor) => {
-    if (!window.confirm(`Confirmar programação de reembolso/pagamento de R$ ${Number(valor).toFixed(2)}?`)) {
+    if (!window.confirm(`Confirmar programação de reembolso/pagamento de R$ ${Number(valor).toFixed(2).replace('.', ',')}?`)) {
       return;
     }
     setProcessando(true);
+    setFeedbackMsg(null);
     try {
       await expensesService.updateStatus(id, 'APROVADO', null, user.id);
+      setFeedbackMsg({ type: 'success', text: `Reembolso de R$ ${Number(valor).toFixed(2).replace('.', ',')} liquidado com sucesso!` });
       loadData();
     } catch (e) {
-      alert('Erro ao liquidar despesa: ' + e.message);
+      setFeedbackMsg({ type: 'error', text: 'Erro ao liquidar despesa: ' + e.message });
     } finally {
       setProcessando(false);
     }
@@ -68,13 +75,15 @@ export default function Aprovacoes({ user }) {
   const abrirModalReprovar = (id) => {
     setReprovandoId(id);
     setMotivoReprovacao('');
+    setModalError(null);
   };
 
   // Confirmar reprovação com justificativa
   const handleConfirmarReprovacao = async (e) => {
     e.preventDefault();
+    setModalError(null);
     if (!motivoReprovacao.trim()) {
-      alert('Por favor, digite o motivo da reprovação para orientar o vendedor.');
+      setModalError('Por favor, descreva a justificativa da reprovação para orientar a equipe.');
       return;
     }
     setProcessando(true);
@@ -82,9 +91,10 @@ export default function Aprovacoes({ user }) {
       await expensesService.updateStatus(reprovandoId, 'REPROVADO', motivoReprovacao.trim(), user.id);
       setReprovandoId(null);
       setMotivoReprovacao('');
+      setFeedbackMsg({ type: 'warning', text: 'Despesa reprovada. O vendedor foi sinalizado com a justificativa apontada.' });
       loadData();
     } catch (e) {
-      alert('Erro ao reprovar: ' + e.message);
+      setModalError('Erro ao reprovar: ' + e.message);
     } finally {
       setProcessando(false);
     }
@@ -115,8 +125,22 @@ export default function Aprovacoes({ user }) {
         <p className="text-muted">Fluxo de auditoria CRM e liquidação de reembolsos — {user.profile?.funcao}</p>
       </header>
 
+      {/* Alerta de Feedback da Esteira */}
+      {feedbackMsg && (
+        <div className={`alert-box ${feedbackMsg.type === 'success' ? 'alert-success' : feedbackMsg.type === 'warning' ? 'alert-warning' : 'alert-danger'}`}>
+          <span>{feedbackMsg.text}</span>
+          <button 
+            type="button" 
+            onClick={() => setFeedbackMsg(null)}
+            style={{ background: 'transparent', border: 'none', color: 'inherit', cursor: 'pointer', fontWeight: 'bold' }}
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       {/* Navegação entre as Filas */}
-      <div style={{ display: 'flex', gap: '12px', marginBottom: '24px' }}>
+      <div style={{ display: 'flex', gap: '8px', marginBottom: '24px', flexWrap: 'wrap' }}>
         {isAdministrativo && (
           <button 
             className={`btn ${abaAtiva === 'ADMIN' ? 'btn-primary' : ''}`}
@@ -301,6 +325,12 @@ export default function Aprovacoes({ user }) {
             <p className="text-muted" style={{ fontSize: '0.85rem', marginBottom: '20px' }}>
               Informe o motivo da não conformidade (ex: visita não localizada no CRM, divergência de valor ou falta de comprovante).
             </p>
+
+            {modalError && (
+              <div className="alert-box alert-danger">
+                <span>{modalError}</span>
+              </div>
+            )}
 
             <form onSubmit={handleConfirmarReprovacao}>
               <div className="form-group">

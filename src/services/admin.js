@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import { auditService } from './audit';
 
 export const adminService = {
   // Buscar todos os usuários
@@ -25,6 +26,8 @@ export const adminService = {
       .select();
 
     if (error) throw error;
+
+    auditService.log('ADD_USER_PROFILE', 'colaboradores', uid, { email, nome, funcao });
     return data[0];
   },
 
@@ -37,6 +40,8 @@ export const adminService = {
       .select();
       
     if (error) throw error;
+
+    auditService.log('UPDATE_USER_ROLE', 'colaboradores', uid, updates);
     return data[0];
   },
 

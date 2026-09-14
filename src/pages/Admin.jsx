@@ -6,6 +6,8 @@ export default function Admin({ user }) {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [formData, setFormData] = useState({ uid: '', email: '', nome: '', funcao: 'Vendedor' });
+  const [feedbackMsg, setFeedbackMsg] = useState(null);
+  const [modalError, setModalError] = useState(null);
 
   useEffect(() => {
     // Redundância de segurança no Frontend
@@ -20,7 +22,7 @@ export default function Admin({ user }) {
       setUsers(data);
     } catch (e) {
       console.error(e);
-      alert("Erro ao carregar usuários: " + e.message);
+      setFeedbackMsg({ type: 'error', text: "Erro ao carregar colaboradores: " + e.message });
     } finally {
       setLoading(false);
     }
@@ -28,13 +30,15 @@ export default function Admin({ user }) {
 
   const handleAddUser = async (e) => {
     e.preventDefault();
+    setModalError(null);
     try {
       await adminService.addUserProfile(formData.uid, formData.email, formData.nome, formData.funcao);
       setShowModal(false);
       setFormData({ uid: '', email: '', nome: '', funcao: 'Vendedor' });
+      setFeedbackMsg({ type: 'success', text: 'Colaborador vinculado com sucesso!' });
       loadUsers();
     } catch (e) {
-      alert("Erro ao adicionar usuário: " + e.message);
+      setModalError("Erro ao vincular colaborador: " + e.message);
     }
   };
 
@@ -42,19 +46,21 @@ export default function Admin({ user }) {
     if(!window.confirm(`Tem certeza que deseja mudar a função para ${newRole}?`)) return;
     try {
       await adminService.updateUser(uid, { funcao: newRole });
+      setFeedbackMsg({ type: 'success', text: `Cargo atualizado para "${newRole}" com sucesso!` });
       loadUsers();
     } catch(e) {
-      alert("Erro ao atualizar: " + e.message);
+      setFeedbackMsg({ type: 'error', text: "Erro ao atualizar cargo: " + e.message });
     }
   };
 
   const handleDelete = async (uid) => {
-    if(!window.confirm("CUIDADO: Tem certeza que deseja deletar este perfil?")) return;
+    if(!window.confirm("CUIDADO: Tem certeza que deseja desvincular este perfil de colaborador?")) return;
     try {
       await adminService.deleteUser(uid);
+      setFeedbackMsg({ type: 'warning', text: 'Perfil de colaborador removido com sucesso.' });
       loadUsers();
     } catch(e) {
-      alert("Erro ao deletar (ele pode estar atrelado a despesas): " + e.message);
+      setFeedbackMsg({ type: 'error', text: "Erro ao remover perfil (ele pode ter despesas atreladas): " + e.message });
     }
   };
 
@@ -64,15 +70,29 @@ export default function Admin({ user }) {
 
   return (
     <>
-      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
+      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
         <div>
           <h1>Painel de Controle</h1>
           <p className="text-muted">Gestão de Colaboradores</p>
         </div>
-        <button className="btn btn-primary" onClick={() => setShowModal(true)}>
+        <button className="btn btn-primary" onClick={() => { setModalError(null); setShowModal(true); }}>
           + Vincular Novo Usuário
         </button>
       </header>
+
+      {/* Alerta de Feedback */}
+      {feedbackMsg && (
+        <div className={`alert-box ${feedbackMsg.type === 'success' ? 'alert-success' : feedbackMsg.type === 'warning' ? 'alert-warning' : 'alert-danger'}`}>
+          <span>{feedbackMsg.text}</span>
+          <button 
+            type="button" 
+            onClick={() => setFeedbackMsg(null)}
+            style={{ background: 'transparent', border: 'none', color: 'inherit', cursor: 'pointer', fontWeight: 'bold' }}
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
       <div className="glass-panel">
         <div className="table-container">
@@ -130,6 +150,11 @@ export default function Admin({ user }) {
         <div className="modal-overlay">
           <div className="glass-panel modal-content">
             <h2 style={{ marginBottom: '24px' }}>Vincular Usuário</h2>
+            {modalError && (
+              <div className="alert-box alert-danger">
+                <span>{modalError}</span>
+              </div>
+            )}
             <div style={{ padding: '16px', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', marginBottom: '24px', fontSize: '0.85rem' }}>
               <strong>Atenção:</strong> Por segurança, as senhas só podem ser criadas no painel Auth do Supabase. 
               Crie o login lá primeiro, copie o <strong>User UID</strong> e cole abaixo para ativar o perfil no sistema.
