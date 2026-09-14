@@ -3,6 +3,7 @@ import { expensesService } from '../services/expenses';
 import { CATEGORIAS_DESPESAS } from '../data/categories';
 import ReceiptModal from '../components/ReceiptModal';
 import StatusHistoryModal from '../components/StatusHistoryModal';
+import ReportPrintModal from '../components/ReportPrintModal';
 
 export default function Relatorios({ user }) {
   const [expenses, setExpenses] = useState([]);
@@ -11,6 +12,7 @@ export default function Relatorios({ user }) {
   // Estados dos Novos Modais
   const [comprovanteAtivo, setComprovanteAtivo] = useState(null);
   const [historicoAtivo, setHistoricoAtivo] = useState(null);
+  const [modalPrestacao, setModalPrestacao] = useState(false);
 
   // Filtros
   const [filtroStatus, setFiltroStatus] = useState('TODOS');
@@ -133,11 +135,28 @@ export default function Relatorios({ user }) {
       <header style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
         <div>
           <h1>Relatórios Gerais & Extratos</h1>
-          <p className="text-muted">Exportação contábil para Excel com cruzamento CRM</p>
+          <p className="text-muted">Exportação contábil para Excel e emissão de folha oficial A4 de prestação de contas</p>
         </div>
-        <button className="btn btn-success" onClick={handleExportCSV} disabled={despesasFiltradas.length === 0}>
-          📊 Exportar para Excel (CSV)
-        </button>
+        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+          <button 
+            type="button"
+            className="btn btn-primary" 
+            onClick={() => setModalPrestacao(true)} 
+            disabled={despesasFiltradas.length === 0}
+            style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+          >
+            <span>📑</span> Prestação de Contas (PDF A4)
+          </button>
+          <button 
+            type="button"
+            className="btn btn-success" 
+            onClick={handleExportCSV} 
+            disabled={despesasFiltradas.length === 0}
+            style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+          >
+            <span>📊</span> Exportar Excel (CSV)
+          </button>
+        </div>
       </header>
 
       {/* Painel de Filtros Avançados */}
@@ -322,6 +341,16 @@ export default function Relatorios({ user }) {
         <StatusHistoryModal 
           expense={historicoAtivo} 
           onClose={() => setHistoricoAtivo(null)} 
+        />
+      )}
+
+      {/* Modal Emissor de Prestação de Contas em Folha A4 */}
+      {modalPrestacao && (
+        <ReportPrintModal 
+          expenses={despesasFiltradas} 
+          user={user} 
+          periodoDescricao={dataInicio && dataFim ? `${dataInicio} até ${dataFim}` : 'Lançamentos Selecionados'} 
+          onClose={() => setModalPrestacao(false)} 
         />
       )}
     </>
