@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { Analytics } from '@vercel/analytics/react';
 import { authService } from './services/auth';
 import './index.css';
 
@@ -8,9 +9,7 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Despesas from './pages/Despesas';
 import Aprovacoes from './pages/Aprovacoes';
-
 import Admin from './pages/Admin';
-
 import Relatorios from './pages/Relatorios';
 
 function App() {
@@ -29,7 +28,7 @@ function App() {
     try {
       const u = await authService.getCurrentUser();
       setUser(u);
-    } catch(e) {
+    } catch (_err) {
       setUser(null);
     } finally {
       setLoading(false);
@@ -39,22 +38,30 @@ function App() {
   if (loading) return <div style={{ display: 'flex', height: '100vh', alignItems: 'center', justifyContent: 'center' }}>Carregando SAAV EXPENSES...</div>;
 
   if (!user) {
-    return <Login onLogin={checkUser} />;
+    return (
+      <>
+        <Login onLogin={checkUser} />
+        <Analytics />
+      </>
+    );
   }
 
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<Layout user={user} />}>
-          <Route index element={<Dashboard user={user} />} />
-          <Route path="despesas" element={<Despesas user={user} />} />
-          <Route path="aprovacoes" element={<Aprovacoes user={user} />} />
-          <Route path="relatorios" element={<Relatorios user={user} />} />
-          <Route path="admin" element={<Admin user={user} />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Route>
-      </Routes>
-    </BrowserRouter>
+    <>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<Layout user={user} />}>
+            <Route index element={<Dashboard user={user} />} />
+            <Route path="despesas" element={<Despesas user={user} />} />
+            <Route path="aprovacoes" element={<Aprovacoes user={user} />} />
+            <Route path="relatorios" element={<Relatorios user={user} />} />
+            <Route path="admin" element={<Admin user={user} />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Route>
+        </Routes>
+      </BrowserRouter>
+      <Analytics />
+    </>
   );
 }
 
