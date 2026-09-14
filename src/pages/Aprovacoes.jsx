@@ -1,5 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { expensesService } from '../services/expenses';
+import ReceiptModal from '../components/ReceiptModal';
+import StatusHistoryModal from '../components/StatusHistoryModal';
 
 export default function Aprovacoes({ user }) {
   const [expenses, setExpenses] = useState([]);
@@ -7,6 +9,10 @@ export default function Aprovacoes({ user }) {
   const [abaAtiva, setAbaAtiva] = useState(
     user?.profile?.funcao === 'Financeiro' ? 'FINANCEIRO' : 'ADMIN'
   );
+
+  // Estados dos Novos Modais de Comprovante e Histórico
+  const [comprovanteAtivo, setComprovanteAtivo] = useState(null);
+  const [historicoAtivo, setHistoricoAtivo] = useState(null);
 
   // Modal de Reprovação
   const [reprovandoId, setReprovandoId] = useState(null);
@@ -247,20 +253,43 @@ export default function Aprovacoes({ user }) {
                           </div>
                         )}
 
-                        {/* Link do Comprovante */}
-                        {d.foto_url && (
-                          <div style={{ marginTop: '6px' }}>
-                            <a 
-                              href={d.foto_url} 
-                              target="_blank" 
-                              rel="noreferrer" 
+                        {/* Botões de Comprovante e Histórico Auditável */}
+                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '8px', flexWrap: 'wrap' }}>
+                          {d.foto_url ? (
+                            <button 
+                              type="button" 
                               className="btn" 
-                              style={{ padding: '3px 8px', fontSize: '0.75rem', background: 'rgba(255,255,255,0.08)' }}
+                              style={{ 
+                                padding: '4px 10px', 
+                                fontSize: '0.8rem', 
+                                background: 'rgba(99, 102, 241, 0.15)', 
+                                color: '#818cf8', 
+                                border: '1px solid rgba(99, 102, 241, 0.3)' 
+                              }}
+                              onClick={() => setComprovanteAtivo({ url: d.foto_url, expense: d })}
+                              title="Visualizar comprovante com zoom e rotação"
                             >
-                              📎 Ver Comprovante Anexo
-                            </a>
-                          </div>
-                        )}
+                              🧾 Ver Comprovante
+                            </button>
+                          ) : (
+                            <span className="text-muted small">Sem anexo</span>
+                          )}
+
+                          <button 
+                            type="button" 
+                            className="btn" 
+                            style={{ 
+                              padding: '4px 10px', 
+                              fontSize: '0.8rem', 
+                              background: 'rgba(255, 255, 255, 0.08)', 
+                              border: '1px solid rgba(255, 255, 255, 0.12)' 
+                            }}
+                            onClick={() => setHistoricoAtivo(d)}
+                            title="Ver linha do tempo e auditoria da despesa"
+                          >
+                            🕒 Histórico
+                          </button>
+                        </div>
                       </div>
 
                       {/* Valor e Ações */}
@@ -356,6 +385,22 @@ export default function Aprovacoes({ user }) {
             </form>
           </div>
         </div>
+      )}
+      {/* Modal Visualizador de Comprovante Integrado */}
+      {comprovanteAtivo && (
+        <ReceiptModal 
+          fileUrl={comprovanteAtivo.url} 
+          expense={comprovanteAtivo.expense} 
+          onClose={() => setComprovanteAtivo(null)} 
+        />
+      )}
+
+      {/* Modal de Linha do Tempo e Histórico de Status */}
+      {historicoAtivo && (
+        <StatusHistoryModal 
+          expense={historicoAtivo} 
+          onClose={() => setHistoricoAtivo(null)} 
+        />
       )}
     </>
   );

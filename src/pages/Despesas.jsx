@@ -2,6 +2,8 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { expensesService } from '../services/expenses';
 import { CATEGORIAS_DESPESAS, getCategoriaByCodigo } from '../data/categories';
 import { getInfoPrazoMesAtual } from '../utils/dateUtils';
+import ReceiptModal from '../components/ReceiptModal';
+import StatusHistoryModal from '../components/StatusHistoryModal';
 
 export default function Despesas({ user }) {
   const [expenses, setExpenses] = useState([]);
@@ -12,6 +14,10 @@ export default function Despesas({ user }) {
   const [file, setFile] = useState(null);
   const [feedbackMsg, setFeedbackMsg] = useState(null);
   const [modalError, setModalError] = useState(null);
+
+  // Estados dos Novos Modais de Comprovante e Histórico
+  const [comprovanteAtivo, setComprovanteAtivo] = useState(null);
+  const [historicoAtivo, setHistoricoAtivo] = useState(null);
 
   // Informações do prazo do mês
   const prazoInfo = getInfoPrazoMesAtual();
@@ -290,29 +296,58 @@ export default function Despesas({ user }) {
                     </td>
                     <td>{getStatusBadge(d.status)}</td>
                     <td>
-                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                      <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
                         {d.foto_url ? (
-                          <a 
-                            href={d.foto_url} 
-                            target="_blank" 
-                            rel="noreferrer" 
+                          <button 
+                            type="button" 
                             className="btn" 
-                            style={{ padding: '4px 10px', fontSize: '0.8rem', background: 'rgba(255,255,255,0.1)' }}
+                            style={{ 
+                              padding: '5px 10px', 
+                              fontSize: '0.8rem', 
+                              background: 'rgba(99, 102, 241, 0.15)', 
+                              color: '#818cf8', 
+                              border: '1px solid rgba(99, 102, 241, 0.3)' 
+                            }}
+                            onClick={() => setComprovanteAtivo({ url: d.foto_url, expense: d })}
+                            title="Visualizar comprovante com zoom e rotação"
                           >
-                            Ver Anexo
-                          </a>
+                            🧾 Comprovante
+                          </button>
                         ) : (
                           <span className="text-muted small">Sem anexo</span>
                         )}
+
+                        <button 
+                          type="button" 
+                          className="btn" 
+                          style={{ 
+                            padding: '5px 10px', 
+                            fontSize: '0.8rem', 
+                            background: 'rgba(255, 255, 255, 0.08)', 
+                            border: '1px solid rgba(255, 255, 255, 0.12)' 
+                          }}
+                          onClick={() => setHistoricoAtivo(d)}
+                          title="Ver linha do tempo e auditoria da despesa"
+                        >
+                          🕒 Histórico
+                        </button>
+
                         {d.status === 'REPROVADO' && (
                           <button 
                             type="button" 
                             className="btn" 
-                            style={{ padding: '4px 10px', fontSize: '0.8rem', background: '#f59e0b', color: '#000', fontWeight: 'bold', border: 'none' }}
+                            style={{ 
+                              padding: '5px 10px', 
+                              fontSize: '0.8rem', 
+                              background: '#f59e0b', 
+                              color: '#000', 
+                              fontWeight: 'bold', 
+                              border: 'none' 
+                            }}
                             onClick={() => handleOpenEdit(d)}
                             title="Corrigir apontamento e reenviar para validação"
                           >
-                            ✏️ Corrigir e Reenviar
+                            ✏️ Corrigir
                           </button>
                         )}
                       </div>
@@ -467,6 +502,22 @@ export default function Despesas({ user }) {
             </form>
           </div>
         </div>
+      )}
+      {/* Modal Visualizador de Comprovante Integrado */}
+      {comprovanteAtivo && (
+        <ReceiptModal 
+          fileUrl={comprovanteAtivo.url} 
+          expense={comprovanteAtivo.expense} 
+          onClose={() => setComprovanteAtivo(null)} 
+        />
+      )}
+
+      {/* Modal de Linha do Tempo e Histórico de Status */}
+      {historicoAtivo && (
+        <StatusHistoryModal 
+          expense={historicoAtivo} 
+          onClose={() => setHistoricoAtivo(null)} 
+        />
       )}
     </>
   );

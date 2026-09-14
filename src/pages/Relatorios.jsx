@@ -1,11 +1,17 @@
 import React, { useEffect, useState } from 'react';
 import { expensesService } from '../services/expenses';
 import { CATEGORIAS_DESPESAS } from '../data/categories';
+import ReceiptModal from '../components/ReceiptModal';
+import StatusHistoryModal from '../components/StatusHistoryModal';
 
 export default function Relatorios({ user }) {
   const [expenses, setExpenses] = useState([]);
   const [loading, setLoading] = useState(true);
   
+  // Estados dos Novos Modais
+  const [comprovanteAtivo, setComprovanteAtivo] = useState(null);
+  const [historicoAtivo, setHistoricoAtivo] = useState(null);
+
   // Filtros
   const [filtroStatus, setFiltroStatus] = useState('TODOS');
   const [filtroGrupo, setFiltroGrupo] = useState('TODOS');
@@ -261,22 +267,38 @@ export default function Relatorios({ user }) {
                       R$ {Number(d.amount).toFixed(2).replace('.', ',')}
                     </td>
                     <td>
-                      <span className="badge bg-secondary">{d.status}</span>
+                      <button 
+                        type="button" 
+                        className="badge bg-secondary" 
+                        style={{ cursor: 'pointer', border: 'none' }}
+                        onClick={() => setHistoricoAtivo(d)}
+                        title="Clique para ver o histórico detalhado"
+                      >
+                        {d.status} 🕒
+                      </button>
                     </td>
                     <td>
-                      {d.foto_url ? (
-                        <a 
-                          href={d.foto_url} 
-                          target="_blank" 
-                          rel="noreferrer" 
-                          className="btn" 
-                          style={{ padding: '2px 8px', fontSize: '0.75rem', background: 'rgba(255,255,255,0.08)' }}
-                        >
-                          Ver
-                        </a>
-                      ) : (
-                        <span className="text-muted small">-</span>
-                      )}
+                      <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                        {d.foto_url ? (
+                          <button 
+                            type="button" 
+                            className="btn" 
+                            style={{ 
+                              padding: '3px 8px', 
+                              fontSize: '0.75rem', 
+                              background: 'rgba(99, 102, 241, 0.15)', 
+                              color: '#818cf8', 
+                              border: '1px solid rgba(99, 102, 241, 0.3)' 
+                            }}
+                            onClick={() => setComprovanteAtivo({ url: d.foto_url, expense: d })}
+                            title="Visualizar comprovante com zoom e rotação"
+                          >
+                            🧾 Ver
+                          </button>
+                        ) : (
+                          <span className="text-muted small">-</span>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -285,6 +307,23 @@ export default function Relatorios({ user }) {
           )}
         </div>
       </div>
+
+      {/* Modal Visualizador de Comprovante Integrado */}
+      {comprovanteAtivo && (
+        <ReceiptModal 
+          fileUrl={comprovanteAtivo.url} 
+          expense={comprovanteAtivo.expense} 
+          onClose={() => setComprovanteAtivo(null)} 
+        />
+      )}
+
+      {/* Modal de Linha do Tempo e Histórico de Status */}
+      {historicoAtivo && (
+        <StatusHistoryModal 
+          expense={historicoAtivo} 
+          onClose={() => setHistoricoAtivo(null)} 
+        />
+      )}
     </>
   );
 }
