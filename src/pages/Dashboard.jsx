@@ -113,7 +113,21 @@ export default function Dashboard({ user }) {
   // Cálculo SVG Donut
   const radius = 58;
   const circumference = 2 * Math.PI * radius;
-  let accumulatedPercent = 0;
+
+  const donutSlices = useMemo(() => {
+    return donutCategories.map((cat, idx) => {
+      const color = CHART_COLORS[idx % CHART_COLORS.length];
+      const strokeDash = (cat.percent / 100) * circumference;
+      const prevPercentSum = donutCategories.slice(0, idx).reduce((sum, c) => sum + c.percent, 0);
+      const strokeOffset = -(prevPercentSum / 100) * circumference;
+      return {
+        ...cat,
+        color,
+        strokeDash,
+        strokeOffset
+      };
+    });
+  }, [donutCategories, circumference]);
 
   return (
     <>
@@ -329,33 +343,26 @@ export default function Dashboard({ user }) {
                       />
                       
                       {/* Fatias das categorias */}
-                      {donutCategories.map((cat, idx) => {
-                        const color = CHART_COLORS[idx % CHART_COLORS.length];
-                        const strokeDash = (cat.percent / 100) * circumference;
-                        const strokeOffset = -(accumulatedPercent / 100) * circumference;
-                        accumulatedPercent += cat.percent;
-
-                        return (
-                          <circle
-                            key={cat.nome}
-                            cx="80"
-                            cy="80"
-                            r={radius}
-                            fill="transparent"
-                            stroke={color}
-                            strokeWidth="20"
-                            strokeDasharray={`${strokeDash} ${circumference}`}
-                            strokeDashoffset={strokeOffset}
-                            style={{
-                              transition: 'stroke-width 0.2s ease, opacity 0.2s ease',
-                              cursor: 'pointer',
-                              opacity: hoveredCategory && hoveredCategory !== cat.nome ? 0.45 : 1
-                            }}
-                            onMouseEnter={() => setHoveredCategory(cat.nome)}
-                            onMouseLeave={() => setHoveredCategory(null)}
-                          />
-                        );
-                      })}
+                      {donutSlices.map((cat) => (
+                        <circle
+                          key={cat.nome}
+                          cx="80"
+                          cy="80"
+                          r={radius}
+                          fill="transparent"
+                          stroke={cat.color}
+                          strokeWidth="20"
+                          strokeDasharray={`${cat.strokeDash} ${circumference}`}
+                          strokeDashoffset={cat.strokeOffset}
+                          style={{
+                            transition: 'stroke-width 0.2s ease, opacity 0.2s ease',
+                            cursor: 'pointer',
+                            opacity: hoveredCategory && hoveredCategory !== cat.nome ? 0.45 : 1
+                          }}
+                          onMouseEnter={() => setHoveredCategory(cat.nome)}
+                          onMouseLeave={() => setHoveredCategory(null)}
+                        />
+                      ))}
                     </svg>
 
                     {/* Centro do Donut */}

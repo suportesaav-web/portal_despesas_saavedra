@@ -2,6 +2,9 @@ import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { expensesService } from '../services/expenses';
 import { CATEGORIAS_DESPESAS, getCategoriaByCodigo } from '../data/categories';
 import { getInfoPrazoMesAtual } from '../utils/dateUtils';
+import { ocrService } from '../services/ocrService';
+import { offlineStorage } from '../utils/offlineStorage';
+import { validateExpenseCompliance } from '../data/policies';
 import ReceiptModal from '../components/ReceiptModal';
 import StatusHistoryModal from '../components/StatusHistoryModal';
 
@@ -16,9 +19,15 @@ export default function Despesas({ user }) {
   const [feedbackMsg, setFeedbackMsg] = useState(null);
   const [modalError, setModalError] = useState(null);
 
+  // Estados de OCR (Leitura Inteligente com IA)
+  const [ocrLoading, setOcrLoading] = useState(false);
+  const [ocrProgress, setOcrProgress] = useState(null);
+  const [ocrConfidence, setOcrConfidence] = useState([]);
+
   // Referências para Câmera Direta e Galeria
   const cameraInputRef = useRef(null);
   const galleryInputRef = useRef(null);
+  const previewUrlRef = useRef(null);
 
   // Estados dos Novos Modais de Comprovante e Histórico
   const [comprovanteAtivo, setComprovanteAtivo] = useState(null);
@@ -33,6 +42,25 @@ export default function Despesas({ user }) {
   // Data e hora atuais como padrão
   const dataHoje = new Date().toISOString().split('T')[0];
   const horaAgora = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
+  // Limpa preview de arquivo e libera memória do navegador (revokeObjectURL)
+  const clearFilePreview = useCallback(() => {
+    if (previewUrlRef.current) {
+      URL.revokeObjectURL(previewUrlRef.current);
+      previewUrlRef.current = null;
+    }
+    setFile(null);
+    setFilePreview(null);
+  }, []);
+
+  // Limpeza de memória ao desmontar o componente
+  useEffect(() => {
+    return () => {
+      if (previewUrlRef.current) {
+        URL.revokeObjectURL(previewUrlRef.current);
+      }
+    };
+  }, []);
 
   // Lista preditiva de clientes sugeridos (ordenada por frequência)
   const clientesSugeridos = useMemo(() => {
@@ -55,6 +83,14 @@ export default function Despesas({ user }) {
     categoria_codigo: '2.3.1'
   });
 
+  // Validação em Tempo Real de Políticas Corporativas
+  const compliance = useMemo(() => {
+    return validateExpenseCompliance({
+      ...formData,
+      id: editingExpense?.id
+    }, expenses);
+  }, [formData, editingExpense, expenses]);
+
   const loadData = useCallback(async () => {
     try {
       const data = await expensesService.getExpenses(user?.profile);
@@ -71,6 +107,11 @@ export default function Despesas({ user }) {
 
   useEffect(() => {
     loadData();
+    const handleSynced = () => loadData();
+    window.addEventListener('saav-offline-synced', handleSynced);
+    return () => {
+      window.removeEventListener('saav-offline-synced', handleSynced);
+    };
   }, [loadData]);
 
   // Função de máscara de moeda em tempo real (R$ 0,00)
@@ -102,9 +143,10 @@ export default function Despesas({ user }) {
       categoria_codigo: '2.3.1'
     });
     setDisplayAmount('');
-    setFile(null);
-    setFilePreview(null);
+    clearFilePreview();
     setModalError(null);
+    setOcrConfidence([]);
+    setOcrProgress(null);
     setShowModal(true);
   };
 
@@ -128,9 +170,10 @@ export default function Despesas({ user }) {
       setDisplayAmount('');
     }
 
-    setFile(null);
-    setFilePreview(null);
+    clearFilePreview();
     setModalError(null);
+    setOcrConfidence([]);
+    setOcrProgress(null);
     setShowModal(true);
   };
 
@@ -138,12 +181,47 @@ export default function Despesas({ user }) {
     setFormData({ ...formData, categoria_codigo: e.target.value });
   };
 
+  // Executa OCR na foto do recibo para leitura inteligente
+  const handleRunOCR = async () => {
+    if (!file) return;
+    setOcrLoading(true);
+    setOcrProgress({ status: 'Inicializando motor OCR...', progress: 10 });
+    setModalError(null);
+    try {
+      const { extracted } = await ocrService.processReceiptImage(file, (p) => setOcrProgress(p));
+
+      setFormData(prev => ({
+        ...prev,
+        amount: extracted.amount || prev.amount,
+        date: extracted.date || prev.date,
+        hora: extracted.hora || prev.hora,
+        cliente: extracted.cliente || prev.cliente,
+        categoria_codigo: extracted.categoria_codigo || prev.categoria_codigo
+      }));
+
+      if (extracted.amount) {
+        const numVal = Math.round(parseFloat(extracted.amount) * 100);
+        const { display } = formatCurrencyInput(numVal);
+        setDisplayAmount(display);
+      }
+
+      setOcrConfidence(extracted.confidenceNotes || []);
+    } catch (err) {
+      setModalError('Não foi possível ler os dados automaticamente: ' + err.message);
+    } finally {
+      setOcrLoading(false);
+      setOcrProgress(null);
+    }
+  };
+
   const handleFileChange = (e) => {
     const selectedFile = e.target.files[0];
     setModalError(null);
+    setOcrConfidence([]);
+    setOcrProgress(null);
+    clearFilePreview();
+
     if (!selectedFile) {
-      setFile(null);
-      setFilePreview(null);
       return;
     }
 
@@ -152,8 +230,6 @@ export default function Despesas({ user }) {
     if (selectedFile.size > MAX_SIZE) {
       setModalError('O arquivo selecionado excede o limite máximo permitido de 10MB.');
       e.target.value = '';
-      setFile(null);
-      setFilePreview(null);
       return;
     }
 
@@ -162,14 +238,14 @@ export default function Despesas({ user }) {
     if (!validTypes.includes(selectedFile.type) && !selectedFile.name.toLowerCase().endsWith('.pdf')) {
       setModalError('Formato inválido. Por favor, envie uma foto (JPG, PNG, WebP) ou arquivo PDF.');
       e.target.value = '';
-      setFile(null);
-      setFilePreview(null);
       return;
     }
 
     setFile(selectedFile);
     if (selectedFile.type.startsWith('image/')) {
-      setFilePreview(URL.createObjectURL(selectedFile));
+      const url = URL.createObjectURL(selectedFile);
+      previewUrlRef.current = url;
+      setFilePreview(url);
     } else {
       setFilePreview({ isPdf: true, name: selectedFile.name });
     }
@@ -189,15 +265,38 @@ export default function Despesas({ user }) {
     }
 
     setSaving(true);
-    try {
-      const catInfo = getCategoriaByCodigo(formData.categoria_codigo);
-      const payload = {
-        ...formData,
-        categoria: catInfo ? catInfo.itemNome : 'OUTROS',
-        categoria_codigo: formData.categoria_codigo,
-        categoria_grupo: catInfo ? `${catInfo.grupoCodigo} - ${catInfo.grupoNome}` : ''
-      };
+    const catInfo = getCategoriaByCodigo(formData.categoria_codigo);
+    const payload = {
+      ...formData,
+      categoria: catInfo ? catInfo.itemNome : 'OUTROS',
+      categoria_codigo: formData.categoria_codigo,
+      categoria_grupo: catInfo ? `${catInfo.grupoCodigo} - ${catInfo.grupoNome}` : ''
+    };
 
+    // Modo Estrada / Offline: Salva no IndexedDB do dispositivo
+    if (!navigator.onLine) {
+      try {
+        await offlineStorage.saveOfflineExpense(payload, user.id, file, {
+          action: editingExpense ? 'UPDATE' : 'CREATE',
+          targetId: editingExpense?.id || null
+        });
+        setFeedbackMsg({ 
+          type: 'info', 
+          text: '📡 Modo Estrada (Sem Conexão): Despesa e comprovante salvos com segurança no seu aparelho! Eles serão sincronizados automaticamente assim que você tiver sinal.' 
+        });
+        setShowModal(false);
+        setEditingExpense(null);
+        clearFilePreview();
+        setSaving(false);
+        return;
+      } catch (offlineErr) {
+        setModalError('Falha ao salvar offline: ' + offlineErr.message);
+        setSaving(false);
+        return;
+      }
+    }
+
+    try {
       if (editingExpense) {
         await expensesService.updateExpense(editingExpense.id, { ...payload, foto_url: editingExpense.foto_url }, user.id, file);
         setFeedbackMsg({ type: 'success', text: 'Despesa corrigida e reenviada com sucesso! Ela retornou para a esteira em status ABERTO.' });
@@ -216,10 +315,29 @@ export default function Despesas({ user }) {
         cliente: '',
         categoria_codigo: '2.3.1'
       });
-      setFile(null);
+      clearFilePreview();
       setModalError(null);
       loadData();
     } catch (error) {
+      // Fallback para IndexedDB caso a conexão tenha caído durante a submissão
+      if (error.message?.includes('fetch') || error.message?.includes('network') || !navigator.onLine) {
+        try {
+          await offlineStorage.saveOfflineExpense(payload, user.id, file, {
+            action: editingExpense ? 'UPDATE' : 'CREATE',
+            targetId: editingExpense?.id || null
+          });
+          setFeedbackMsg({ 
+            type: 'info', 
+            text: '📡 Conexão instável: despesa guardada com segurança no dispositivo e será sincronizada assim que a internet estabilizar.' 
+          });
+          setShowModal(false);
+          setEditingExpense(null);
+          clearFilePreview();
+          return;
+        } catch {
+          // Fallback silencioso
+        }
+      }
       setModalError('Erro ao salvar despesa: ' + (error.message || 'Tente novamente.'));
     } finally {
       setSaving(false);
@@ -243,12 +361,12 @@ export default function Despesas({ user }) {
 
   return (
     <>
-      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '12px' }}>
+      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
         <div>
           <h1>Minhas Despesas</h1>
           <p className="text-muted">Lançamentos de visitas, deslocamentos e operações de campo</p>
         </div>
-        <button className="btn btn-primary" onClick={handleOpenNew}>
+        <button className="btn btn-primary" onClick={handleOpenNew} style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>
           + Nova Despesa
         </button>
       </header>
@@ -269,7 +387,7 @@ export default function Despesas({ user }) {
 
       {/* Banner de Prazo do Mês */}
       <div 
-        className="glass-panel" 
+        className="glass-panel prazo-banner" 
         style={{ 
           marginBottom: '24px', 
           padding: '16px 20px', 
@@ -282,9 +400,9 @@ export default function Despesas({ user }) {
           background: prazoInfo.ehUrgente ? 'rgba(234, 179, 8, 0.08)' : 'rgba(99, 102, 241, 0.08)'
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <span style={{ fontSize: '1.5rem' }}>⏱️</span>
-          <div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
+          <span style={{ fontSize: '1.5rem', flexShrink: 0 }}>⏱️</span>
+          <div style={{ minWidth: 0 }}>
             <strong>Prazo Limite do Mês: {prazoInfo.formatado}</strong> (Último dia útil)
             <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
               {prazoInfo.ehHoje 
@@ -295,7 +413,7 @@ export default function Despesas({ user }) {
             </div>
           </div>
         </div>
-        <span className="badge" style={{ background: prazoInfo.ehUrgente ? 'rgba(234, 179, 8, 0.2)' : 'rgba(255,255,255,0.1)' }}>
+        <span className="badge" style={{ background: prazoInfo.ehUrgente ? 'rgba(234, 179, 8, 0.2)' : 'rgba(255,255,255,0.1)', whiteSpace: 'nowrap', flexShrink: 0 }}>
           {prazoInfo.diasRestantes >= 0 ? `${prazoInfo.diasRestantes} dias restantes` : 'Ciclo encerrado'}
         </span>
       </div>
@@ -573,13 +691,23 @@ export default function Despesas({ user }) {
                   </small>
                 </div>
                 <div className="form-group">
-                  <label>Descrição / Justificativa <span style={{ color: 'var(--danger)' }}>*</span></label>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <label style={{ margin: 0 }}>
+                      Descrição / Justificativa <span style={{ color: 'var(--danger)' }}>*</span>
+                    </label>
+                    {compliance.requiresJustification && (
+                      <span style={{ fontSize: '0.72rem', color: '#fbbf24', fontWeight: 600 }}>
+                        ⚠️ Justificativa exigida por política
+                      </span>
+                    )}
+                  </div>
                   <input 
                     type="text" 
                     className="form-input" 
+                    style={{ marginTop: '4px' }}
                     required 
                     disabled={saving}
-                    placeholder="Ex: Estacionamento durante reunião comercial"
+                    placeholder={compliance.requiresJustification ? 'Descreva o motivo detalhado para aprovação da gestão' : 'Ex: Estacionamento durante reunião comercial'}
                     value={formData.descricao} 
                     onChange={e => setFormData({ ...formData, descricao: e.target.value })} 
                   />
@@ -666,46 +794,88 @@ export default function Despesas({ user }) {
                   </div>
                 ) : (
                   /* Miniatura / Preview da foto selecionada */
-                  <div style={{ 
-                    marginTop: '10px', 
-                    padding: '12px 16px', 
-                    background: 'rgba(16, 185, 129, 0.06)', 
-                    borderRadius: '10px', 
-                    border: '1px solid rgba(16, 185, 129, 0.3)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    gap: '12px'
-                  }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', overflow: 'hidden' }}>
-                      {typeof filePreview === 'string' ? (
-                        <img 
-                          src={filePreview} 
-                          alt="Pré-visualização do recibo" 
-                          style={{ width: '54px', height: '54px', objectFit: 'cover', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.2)' }} 
-                        />
-                      ) : (
-                        <span style={{ fontSize: '2rem' }}>📄</span>
-                      )}
-                      <div style={{ overflow: 'hidden' }}>
-                        <div style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-main)', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
-                          {file?.name}
-                        </div>
-                        <div style={{ fontSize: '0.75rem', color: '#34d399', fontWeight: 500, marginTop: '2px' }}>
-                          ✓ Foto capturada ({(file?.size ? (file.size / 1024).toFixed(0) : 0)} KB)
+                  <div style={{ marginTop: '10px' }}>
+                    <div style={{ 
+                      padding: '12px 16px', 
+                      background: 'rgba(16, 185, 129, 0.06)', 
+                      borderRadius: '10px', 
+                      border: '1px solid rgba(16, 185, 129, 0.3)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: '12px'
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', overflow: 'hidden' }}>
+                        {typeof filePreview === 'string' ? (
+                          <img 
+                            src={filePreview} 
+                            alt="Pré-visualização do recibo" 
+                            style={{ width: '54px', height: '54px', objectFit: 'cover', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.2)' }} 
+                          />
+                        ) : (
+                          <span style={{ fontSize: '2rem' }}>📄</span>
+                        )}
+                        <div style={{ overflow: 'hidden' }}>
+                          <div style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-main)', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
+                            {file?.name}
+                          </div>
+                          <div style={{ fontSize: '0.75rem', color: '#34d399', fontWeight: 500, marginTop: '2px' }}>
+                            ✓ Arquivo pronto ({(file?.size ? (file.size / 1024).toFixed(0) : 0)} KB)
+                          </div>
                         </div>
                       </div>
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <button
+                          type="button"
+                          className="btn"
+                          style={{ padding: '6px 12px', fontSize: '0.78rem', background: 'rgba(239, 68, 68, 0.15)', color: '#f87171', border: 'none' }}
+                          onClick={() => { clearFilePreview(); setOcrConfidence([]); setOcrProgress(null); }}
+                        >
+                          Trocar / Remover
+                        </button>
+                      </div>
                     </div>
-                    <div style={{ display: 'flex', gap: '8px' }}>
-                      <button
-                        type="button"
-                        className="btn"
-                        style={{ padding: '6px 12px', fontSize: '0.78rem', background: 'rgba(239, 68, 68, 0.15)', color: '#f87171', border: 'none' }}
-                        onClick={() => { setFile(null); setFilePreview(null); }}
-                      >
-                        Trocar / Remover
-                      </button>
-                    </div>
+
+                    {/* Botão de Leitura Inteligente com IA (OCR) para Imagens */}
+                    {file && typeof filePreview === 'string' && (
+                      <div style={{ marginTop: '10px' }}>
+                        <button
+                          type="button"
+                          className="ocr-trigger-btn"
+                          onClick={handleRunOCR}
+                          disabled={ocrLoading || saving}
+                          title="Lê os dados da nota fiscal automaticamente para preencher os campos"
+                        >
+                          <span>✨</span>
+                          {ocrLoading ? 'Lendo Nota Fiscal...' : 'Preencher Campos com OCR (IA)'}
+                        </button>
+
+                        {ocrProgress && (
+                          <div className="ocr-progress-box">
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem' }}>
+                              <span>{ocrProgress.status}</span>
+                              <strong>{ocrProgress.progress}%</strong>
+                            </div>
+                            <div className="ocr-progress-bar-track">
+                              <div className="ocr-progress-bar-fill" style={{ width: `${ocrProgress.progress}%` }} />
+                            </div>
+                          </div>
+                        )}
+
+                        {ocrConfidence.length > 0 && (
+                          <div style={{ marginTop: '8px', padding: '8px 12px', background: 'rgba(255,255,255,0.03)', borderRadius: '8px' }}>
+                            <span style={{ fontSize: '0.75rem', color: '#34d399', fontWeight: 600, display: 'block' }}>
+                              ✓ Dados detectados no comprovante:
+                            </span>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '4px' }}>
+                              {ocrConfidence.map((note, idx) => (
+                                <span key={idx} className="ocr-confidence-badge">{note}</span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -716,6 +886,23 @@ export default function Despesas({ user }) {
                   </div>
                 )}
               </div>
+
+              {/* Alertas de Compliance e Políticas Corporativas em Tempo Real */}
+              {compliance.alerts.length > 0 && (
+                <div className="compliance-alerts-box" style={{ marginTop: '16px', marginBottom: '8px' }}>
+                  {compliance.alerts.map(a => (
+                    <div key={a.id} className={`compliance-alert-pill ${a.type}`}>
+                      <span className="pill-icon">
+                        {a.type === 'warning' ? '⚠️' : a.type === 'caution' ? '🔍' : 'ℹ️'}
+                      </span>
+                      <div>
+                        <strong>{a.title}: </strong>
+                        <span>{a.message}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
 
               <div className="modal-actions" style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '24px' }}>
                 <button type="button" className="btn" onClick={() => setShowModal(false)} disabled={saving}>

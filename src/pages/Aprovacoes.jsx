@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { expensesService } from '../services/expenses';
+import { notificationService } from '../services/notificationService';
 import ReceiptModal from '../components/ReceiptModal';
 import StatusHistoryModal from '../components/StatusHistoryModal';
 
@@ -20,6 +21,7 @@ export default function Aprovacoes({ user }) {
   const [processando, setProcessando] = useState(false);
   const [feedbackMsg, setFeedbackMsg] = useState(null);
   const [modalError, setModalError] = useState(null);
+  const [whatsAppNotice, setWhatsAppNotice] = useState(null); // { expense, action, reason, collaboratorName }
 
   const isAdministrativo = ['Gestor', 'Supervisor', 'Kyanne', 'Admin'].includes(user?.profile?.funcao);
   const isFinanceiro = ['Financeiro', 'Admin'].includes(user?.profile?.funcao);
@@ -42,15 +44,33 @@ export default function Aprovacoes({ user }) {
   }, [loadData]);
 
   // Ação de Validação no CRM (Administrativo)
-  const handleValidarCRM = async (id, cliente) => {
-    if (!window.confirm(`Confirma que a visita em "${cliente || 'este cliente'}" foi localizada e verificada no CRM?`)) {
+  const handleValidarCRM = async (despesa) => {
+    if (!window.confirm(`Confirma que a visita em "${despesa.cliente || 'este cliente'}" foi localizada e verificada no CRM?`)) {
       return;
     }
     setProcessando(true);
     setFeedbackMsg(null);
     try {
-      await expensesService.updateStatus(id, 'VALIDADO', null, user.id);
-      setFeedbackMsg({ type: 'success', text: `Despesa da visita em "${cliente || 'cliente'}" validada com sucesso no CRM!` });
+      await expensesService.updateStatus(despesa.id, 'VALIDADO', null, user.id);
+      
+      const colabNome = despesa.colaboradores?.nome || 'Colaborador';
+      notificationService.addInAppNotification({
+        title: 'Despesa Validada (CRM)',
+        message: `Despesa de R$ ${Number(despesa.amount).toFixed(2).replace('.', ',')} em ${despesa.cliente || 'Cliente'} foi validada por ${user?.profile?.nome || 'Gestão'}.`,
+        type: 'success'
+      });
+
+      setFeedbackMsg({ 
+        type: 'success', 
+        text: `Despesa da visita em "${despesa.cliente || 'cliente'}" validada com sucesso no CRM!` 
+      });
+
+      setWhatsAppNotice({
+        expense: despesa,
+        action: 'VALIDADO',
+        collaboratorName: colabNome
+      });
+
       loadData();
     } catch (e) {
       setFeedbackMsg({ type: 'error', text: 'Erro ao validar visita: ' + e.message });
@@ -60,15 +80,34 @@ export default function Aprovacoes({ user }) {
   };
 
   // Ação de Reembolso / Liquidação (Financeiro)
-  const handleLiquidar = async (id, valor) => {
-    if (!window.confirm(`Confirmar programação de reembolso/pagamento de R$ ${Number(valor).toFixed(2).replace('.', ',')}?`)) {
+  const handleLiquidar = async (despesa) => {
+    const valorFmt = Number(despesa.amount).toFixed(2).replace('.', ',');
+    if (!window.confirm(`Confirmar programação de reembolso/pagamento de R$ ${valorFmt}?`)) {
       return;
     }
     setProcessando(true);
     setFeedbackMsg(null);
     try {
-      await expensesService.updateStatus(id, 'APROVADO', null, user.id);
-      setFeedbackMsg({ type: 'success', text: `Reembolso de R$ ${Number(valor).toFixed(2).replace('.', ',')} liquidado com sucesso!` });
+      await expensesService.updateStatus(despesa.id, 'APROVADO', null, user.id);
+
+      const colabNome = despesa.colaboradores?.nome || 'Colaborador';
+      notificationService.addInAppNotification({
+        title: 'Reembolso Aprovado',
+        message: `Reembolso de R$ ${valorFmt} referente a ${despesa.cliente || 'visita'} foi aprovado e liberado pelo Financeiro.`,
+        type: 'success'
+      });
+
+      setFeedbackMsg({ 
+        type: 'success', 
+        text: `Reembolso de R$ ${valorFmt} liquidado com sucesso!` 
+      });
+
+      setWhatsAppNotice({
+        expense: despesa,
+        action: 'APROVADO',
+        collaboratorName: colabNome
+      });
+
       loadData();
     } catch (e) {
       setFeedbackMsg({ type: 'error', text: 'Erro ao liquidar despesa: ' + e.message });
@@ -78,8 +117,8 @@ export default function Aprovacoes({ user }) {
   };
 
   // Abrir modal de reprovação
-  const abrirModalReprovar = (id) => {
-    setReprovandoId(id);
+  const abrirModalReprovar = (despesa) => {
+    setReprovandoId(despesa);
     setMotivoReprovacao('');
     setModalError(null);
   };
@@ -94,10 +133,27 @@ export default function Aprovacoes({ user }) {
     }
     setProcessando(true);
     try {
-      await expensesService.updateStatus(reprovandoId, 'REPROVADO', motivoReprovacao.trim(), user.id);
+      const despesa = reprovandoId;
+      await expensesService.updateStatus(despesa.id, 'REPROVADO', motivoReprovacao.trim(), user.id);
+      
+      const colabNome = despesa.colaboradores?.nome || 'Colaborador';
+      notificationService.addInAppNotification({
+        title: 'Despesa Reprovada',
+        message: `Despesa de R$ ${Number(despesa.amount).toFixed(2).replace('.', ',')} foi reprovada: ${motivoReprovacao.trim()}`,
+        type: 'warning'
+      });
+
       setReprovandoId(null);
       setMotivoReprovacao('');
       setFeedbackMsg({ type: 'warning', text: 'Despesa reprovada. O vendedor foi sinalizado com a justificativa apontada.' });
+      
+      setWhatsAppNotice({
+        expense: despesa,
+        action: 'REPROVADO',
+        reason: motivoReprovacao.trim(),
+        collaboratorName: colabNome
+      });
+
       loadData();
     } catch (e) {
       setModalError('Erro ao reprovar: ' + e.message);
@@ -133,11 +189,31 @@ export default function Aprovacoes({ user }) {
 
       {/* Alerta de Feedback da Esteira */}
       {feedbackMsg && (
-        <div className={`alert-box ${feedbackMsg.type === 'success' ? 'alert-success' : feedbackMsg.type === 'warning' ? 'alert-warning' : 'alert-danger'}`}>
-          <span>{feedbackMsg.text}</span>
+        <div className={`alert-box ${feedbackMsg.type === 'success' ? 'alert-success' : feedbackMsg.type === 'warning' ? 'alert-warning' : 'alert-danger'}`} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+          <div>
+            <span>{feedbackMsg.text}</span>
+            {whatsAppNotice && (
+              <div style={{ marginTop: '8px' }}>
+                <button
+                  type="button"
+                  className="btn btn-sm btn-success"
+                  onClick={() => notificationService.sendWhatsAppNotice({
+                    collaboratorName: whatsAppNotice.collaboratorName,
+                    expense: whatsAppNotice.expense,
+                    action: whatsAppNotice.action,
+                    reason: whatsAppNotice.reason,
+                    actorName: user?.profile?.nome
+                  })}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', padding: '4px 12px', background: '#25D366', color: '#000', fontWeight: 600 }}
+                >
+                  <span>📲</span> Notificar Vendedor no WhatsApp
+                </button>
+              </div>
+            )}
+          </div>
           <button 
             type="button" 
-            onClick={() => setFeedbackMsg(null)}
+            onClick={() => { setFeedbackMsg(null); setWhatsAppNotice(null); }}
             style={{ background: 'transparent', border: 'none', color: 'inherit', cursor: 'pointer', fontWeight: 'bold' }}
           >
             ✕
@@ -307,7 +383,7 @@ export default function Aprovacoes({ user }) {
                         {isAdministrativo && d.status === 'ABERTO' && (
                           <button 
                             className="btn btn-primary" 
-                            onClick={() => handleValidarCRM(d.id, d.cliente)}
+                            onClick={() => handleValidarCRM(d)}
                             disabled={processando}
                           >
                             ✅ Validar no CRM
@@ -318,7 +394,7 @@ export default function Aprovacoes({ user }) {
                         {isFinanceiro && d.status === 'VALIDADO' && (
                           <button 
                             className="btn btn-success" 
-                            onClick={() => handleLiquidar(d.id, d.amount)}
+                            onClick={() => handleLiquidar(d)}
                             disabled={processando}
                           >
                             💰 Liquidar Reembolso
@@ -330,7 +406,7 @@ export default function Aprovacoes({ user }) {
                           <button 
                             className="btn" 
                             style={{ background: 'rgba(239, 68, 68, 0.2)', color: '#f87171' }} 
-                            onClick={() => abrirModalReprovar(d.id)}
+                            onClick={() => abrirModalReprovar(d)}
                             disabled={processando}
                           >
                             Reprovar

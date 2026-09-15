@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Analytics } from '@vercel/analytics/react';
 import { SpeedInsights } from '@vercel/speed-insights/react';
@@ -7,11 +7,21 @@ import './index.css';
 
 import Layout from './components/Layout';
 import Login from './pages/Login';
-import Dashboard from './pages/Dashboard';
-import Despesas from './pages/Despesas';
-import Aprovacoes from './pages/Aprovacoes';
-import Admin from './pages/Admin';
-import Relatorios from './pages/Relatorios';
+
+// Lazy loading das páginas para dividir o bundle (Code-Splitting)
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const Despesas = lazy(() => import('./pages/Despesas'));
+const Aprovacoes = lazy(() => import('./pages/Aprovacoes'));
+const Admin = lazy(() => import('./pages/Admin'));
+const Relatorios = lazy(() => import('./pages/Relatorios'));
+const Politicas = lazy(() => import('./pages/Politicas'));
+
+const PageFallback = () => (
+  <div style={{ display: 'flex', height: '60vh', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', gap: '12px' }}>
+    <span style={{ fontSize: '1.5rem' }}>⏳</span>
+    <span>Carregando módulo...</span>
+  </div>
+);
 
 function App() {
   const [user, setUser] = useState(null);
@@ -29,7 +39,7 @@ function App() {
     try {
       const u = await authService.getCurrentUser();
       setUser(u);
-    } catch (_err) {
+    } catch {
       setUser(null);
     } finally {
       setLoading(false);
@@ -53,11 +63,12 @@ function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Layout user={user} />}>
-            <Route index element={<Dashboard user={user} />} />
-            <Route path="despesas" element={<Despesas user={user} />} />
-            <Route path="aprovacoes" element={<Aprovacoes user={user} />} />
-            <Route path="relatorios" element={<Relatorios user={user} />} />
-            <Route path="admin" element={<Admin user={user} />} />
+            <Route index element={<Suspense fallback={<PageFallback />}><Dashboard user={user} /></Suspense>} />
+            <Route path="despesas" element={<Suspense fallback={<PageFallback />}><Despesas user={user} /></Suspense>} />
+            <Route path="aprovacoes" element={<Suspense fallback={<PageFallback />}><Aprovacoes user={user} /></Suspense>} />
+            <Route path="relatorios" element={<Suspense fallback={<PageFallback />}><Relatorios user={user} /></Suspense>} />
+            <Route path="politicas" element={<Suspense fallback={<PageFallback />}><Politicas user={user} /></Suspense>} />
+            <Route path="admin" element={<Suspense fallback={<PageFallback />}><Admin user={user} /></Suspense>} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>
         </Routes>
